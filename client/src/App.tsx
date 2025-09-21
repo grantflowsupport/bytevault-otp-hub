@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,6 +14,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [location] = useLocation();
 
   useEffect(() => {
     // Get initial session
@@ -62,13 +63,27 @@ function Router() {
             </div>
             
             <nav className="hidden md:flex space-x-8">
-              <a href="/" className="text-foreground hover:text-primary transition-colors font-medium border-b-2 border-primary">
+              <Link 
+                href="/"
+                className={`hover:text-primary transition-colors font-medium ${
+                  location === "/" 
+                    ? "text-foreground border-b-2 border-primary" 
+                    : "text-muted-foreground"
+                }`}
+              >
                 Dashboard
-              </a>
+              </Link>
               {isAdmin && (
-                <a href="/admin" className="text-muted-foreground hover:text-primary transition-colors font-medium">
+                <Link 
+                  href="/admin"
+                  className={`hover:text-primary transition-colors font-medium ${
+                    location === "/admin" 
+                      ? "text-foreground border-b-2 border-primary" 
+                      : "text-muted-foreground"
+                  }`}
+                >
                   Admin
-                </a>
+                </Link>
               )}
             </nav>
             
