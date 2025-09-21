@@ -31,16 +31,19 @@ export default function Admin({ user }: AdminProps) {
     is_active: true,
   });
 
-  const [accountForm, setAccountForm] = useState({
-    label: '',
-    imap_host: '',
-    imap_port: 993,
-    imap_user: '',
-    imap_password: '',
-    otp_regex: '\\b\\d{6}\\b',
-    fetch_from_filter: '',
-    is_active: true,
-    priority: 100,
+  const [accountForm, setAccountForm] = useState(() => {
+    const stored = localStorage.getItem('accountForm');
+    return stored ? JSON.parse(stored) : {
+      label: '',
+      imap_host: '',
+      imap_port: 993,
+      imap_user: '',
+      imap_password: '',
+      otp_regex: '\\b\\d{6}\\b',
+      fetch_from_filter: '',
+      is_active: true,
+      priority: 100,
+    };
   });
 
   const [mappingForm, setMappingForm] = useState({
@@ -94,6 +97,10 @@ export default function Admin({ user }: AdminProps) {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Persist form data across remounts
+  useEffect(() => {
+    localStorage.setItem('accountForm', JSON.stringify(accountForm));
+  }, [accountForm]);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -364,7 +371,23 @@ export default function Admin({ user }: AdminProps) {
 
   const handleAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createAccountMutation.mutate(accountForm);
+    createAccountMutation.mutate(accountForm, {
+      onSuccess: () => {
+        // Clear form data from localStorage after successful submission
+        localStorage.removeItem('accountForm');
+        setAccountForm({
+          label: '',
+          imap_host: '',
+          imap_port: 993,
+          imap_user: '',
+          imap_password: '',
+          otp_regex: '\\b\\d{6}\\b',
+          fetch_from_filter: '',
+          is_active: true,
+          priority: 100,
+        });
+      },
+    });
   };
 
   const handleMappingSubmit = (e: React.FormEvent) => {
