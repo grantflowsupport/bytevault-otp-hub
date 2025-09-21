@@ -33,15 +33,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title,
             description,
             is_active
-          ),
-          product_credentials!product_credentials_product_id_fkey (
-            id,
-            label,
-            login_email,
-            login_username,
-            login_password,
-            notes,
-            is_active
           )
         `)
         .eq('user_id', userId)
@@ -52,11 +43,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.message });
       }
 
+      // Fetch credentials for all user's products
+      const productIds = data.map(item => item.products.id);
+      let credentials = [];
+      
+      if (productIds.length > 0) {
+        const { data: credData } = await supabaseAdmin
+          .from('product_credentials')
+          .select('*')
+          .in('product_id', productIds)
+          .eq('is_active', true);
+        credentials = credData || [];
+      }
+
       // Transform the data to a more usable format
       const products = data.map(item => ({
         ...item.products,
         expires_at: item.expires_at,
-        credentials: item.product_credentials?.filter(cred => cred.is_active) || [],
+        credentials: credentials.filter(cred => cred.product_id === item.products.id),
       }));
 
       res.json(products);
