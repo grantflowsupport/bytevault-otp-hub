@@ -24,6 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/my-products', requireUser, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.id;
+      console.log('My-products request for user ID:', userId);
 
       const { data, error } = await supabaseAdmin
         .from('user_access')
@@ -40,6 +41,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq('user_id', userId)
         .eq('products.is_active', true)
         .or('expires_at.is.null,expires_at.gt.now()');
+
+      console.log('User access query result:', { data, error, dataLength: data?.length });
 
       if (error) {
         return res.status(400).json({ error: error.message });

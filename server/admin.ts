@@ -214,21 +214,32 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
     if (requestBody.expires_at && typeof requestBody.expires_at === 'string') {
       console.log('Original expires_at:', requestBody.expires_at);
       
-      // Handle DD-MM-YYYY HH:MM format
-      const dateStr = requestBody.expires_at;
-      const [datePart, timePart] = dateStr.split(' ');
-      
-      if (datePart && timePart) {
-        const [day, month, year] = datePart.split('-');
-        const [hour, minute] = timePart.split(':');
+      try {
+        const dateStr = requestBody.expires_at.trim();
         
-        // Create ISO format: YYYY-MM-DDTHH:MM:SS
-        const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
-        requestBody.expires_at = new Date(isoString);
-        console.log('Converted to Date:', requestBody.expires_at);
-      } else {
-        // Fallback to direct parsing
-        requestBody.expires_at = new Date(requestBody.expires_at);
+        // Handle DD-MM-YYYY HH:MM format specifically
+        if (dateStr.match(/^\d{2}-\d{2}-\d{4}\s\d{2}:\d{2}$/)) {
+          const [datePart, timePart] = dateStr.split(' ');
+          const [day, month, year] = datePart.split('-');
+          const [hour, minute] = timePart.split(':');
+          
+          // Create ISO format: YYYY-MM-DDTHH:MM:SS.000Z
+          const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00.000Z`;
+          requestBody.expires_at = new Date(isoString);
+          console.log('Converted DD-MM-YYYY format to Date:', requestBody.expires_at);
+        } else {
+          // Fallback for other formats
+          requestBody.expires_at = new Date(requestBody.expires_at);
+          console.log('Direct Date conversion:', requestBody.expires_at);
+        }
+        
+        // Validate the Date object
+        if (isNaN(requestBody.expires_at.getTime())) {
+          throw new Error('Invalid date after conversion');
+        }
+      } catch (error) {
+        console.error('Date parsing error:', error);
+        return res.status(400).json({ error: 'Invalid date format. Please use DD-MM-YYYY HH:MM format.' });
       }
     }
     
