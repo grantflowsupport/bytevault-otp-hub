@@ -166,6 +166,42 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Fetch mappings
+  const { data: mappings, isLoading: mappingsLoading } = useQuery({
+    queryKey: ['/api/admin/mappings'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/mappings', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch mappings');
+      return response.json();
+    },
+  });
+
+  // Fetch credentials
+  const { data: credentials, isLoading: credentialsLoading } = useQuery({
+    queryKey: ['/api/admin/credentials'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/credentials', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch credentials');
+      return response.json();
+    },
+  });
+
   // Create product mutation
   const createProductMutation = useMutation({
     mutationFn: async (data: typeof productForm) => {
@@ -441,6 +477,11 @@ export default function Admin({ user }: AdminProps) {
           otp_regex_override: '',
           weight: 100,
         });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/mappings'] });
+        toast({
+          title: "Success",
+          description: "Mapping created successfully",
+        });
       },
     });
   };
@@ -458,6 +499,11 @@ export default function Admin({ user }: AdminProps) {
           login_password: '',
           notes: '',
           is_active: true,
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/credentials'] });
+        toast({
+          title: "Success",
+          description: "Credential created successfully",
         });
       },
     });
@@ -874,7 +920,40 @@ export default function Admin({ user }: AdminProps) {
                 <CardTitle>Existing Mappings</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Mapping list will be displayed here when API is available.</p>
+                {mappingsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse p-3 border border-border rounded-md">
+                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2 mb-1"></div>
+                        <div className="h-3 bg-muted rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : mappings && mappings.length > 0 ? (
+                  <div className="space-y-3">
+                    {mappings.map((mapping: any) => (
+                      <div key={mapping.id} className="flex items-center justify-between p-3 border border-border rounded-md">
+                        <div>
+                          <p className="font-medium text-foreground" data-testid={`text-mapping-product-${mapping.id}`}>
+                            {products?.find((p: any) => p.id === mapping.product_id)?.title || 'Unknown Product'}
+                          </p>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-mapping-account-${mapping.id}`}>
+                            {accounts?.find((a: any) => a.id === mapping.account_id)?.label || 'Unknown Account'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Weight: {mapping.weight}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={mapping.is_active ? "default" : "secondary"}>
+                            {mapping.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No mappings created yet.</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -988,7 +1067,40 @@ export default function Admin({ user }: AdminProps) {
                 <CardTitle>Existing Credentials</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Credential list will be displayed here when API is available.</p>
+                {credentialsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse p-3 border border-border rounded-md">
+                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2 mb-1"></div>
+                        <div className="h-3 bg-muted rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : credentials && credentials.length > 0 ? (
+                  <div className="space-y-3">
+                    {credentials.map((credential: any) => (
+                      <div key={credential.id} className="flex items-center justify-between p-3 border border-border rounded-md">
+                        <div>
+                          <p className="font-medium text-foreground" data-testid={`text-credential-label-${credential.id}`}>
+                            {credential.label}
+                          </p>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-credential-product-${credential.id}`}>
+                            {products?.find((p: any) => p.id === credential.product_id)?.title || 'Unknown Product'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{credential.login_email}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={credential.is_active ? "default" : "secondary"}>
+                            {credential.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No credentials created yet.</p>
+                )}
               </CardContent>
             </Card>
           </div>
