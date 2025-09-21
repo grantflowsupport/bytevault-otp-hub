@@ -147,7 +147,9 @@ export default function AuditLogs() {
   const pagination: Pagination = logsData?.pagination || { page: 1, limit: 25, total: 0, pages: 0 };
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    // Convert "all" back to empty string for API
+    const apiValue = value === 'all' ? '' : value;
+    setFilters(prev => ({ ...prev, [key]: apiValue, page: 1 }));
   };
 
   const handlePageChange = (newPage: number) => {
@@ -277,7 +279,7 @@ export default function AuditLogs() {
                   <SelectValue placeholder="All entities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All entities</SelectItem>
+                  <SelectItem value="all">All entities</SelectItem>
                   <SelectItem value="products">Products</SelectItem>
                   <SelectItem value="accounts">Accounts</SelectItem>
                   <SelectItem value="product_accounts">Product Mappings</SelectItem>
@@ -295,7 +297,7 @@ export default function AuditLogs() {
                   <SelectValue placeholder="All actions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All actions</SelectItem>
+                  <SelectItem value="all">All actions</SelectItem>
                   <SelectItem value="create">Create</SelectItem>
                   <SelectItem value="update">Update</SelectItem>
                   <SelectItem value="delete">Delete</SelectItem>
