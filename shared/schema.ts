@@ -144,6 +144,8 @@ export const insertProductCredentialSchema = createInsertSchema(productCredentia
 export const insertUserAccessSchema = createInsertSchema(userAccess).omit({
   id: true,
   granted_at: true,
+}).extend({
+  expires_at: z.date().nullable().optional(),
 });
 
 export const insertOtpLogSchema = createInsertSchema(otpLogs).omit({
