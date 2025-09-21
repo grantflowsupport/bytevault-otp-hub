@@ -236,6 +236,12 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           // Search for emails within time window
           let messages: any[] = [];
           
+          console.log('Starting email search with config:', {
+            timeWindow,
+            senderWhitelistLength: senderWhitelist.length,
+            accountLabel: account.label
+          });
+          
           if (senderWhitelist.length > 0) {
             // Search each sender separately and combine results
             for (const sender of senderWhitelist) {
@@ -253,8 +259,11 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             messages = Array.from(new Set(messages)).sort((a, b) => a - b);
           } else {
             // Search all emails if no whitelist
+            console.log('Searching all emails since:', since.toISOString());
             const allMessages = await client.search({ since }, { uid: true });
+            console.log('Raw search result:', allMessages);
             messages = Array.isArray(allMessages) ? allMessages : [];
+            console.log('Processed messages array:', messages);
           }
           
           if (!messages || messages.length === 0) {
