@@ -262,6 +262,16 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             const { content } = await client.download(uid);
             const parsed = await simpleParser(content);
 
+            console.log('Processing email:', {
+              uid,
+              subject: parsed.subject,
+              from: parsed.from?.text,
+              hasText: !!parsed.text,
+              hasHtml: !!parsed.html,
+              textLength: parsed.text?.length,
+              htmlLength: parsed.html?.length
+            });
+
             // Advanced sender filtering
             const fromAddress = parsed.from?.text || '';
             
@@ -282,6 +292,14 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             // Search for OTP in subject and text content
             const searchText = `${parsed.subject || ''} ${parsed.text || ''} ${parsed.html || ''}`;
             
+            console.log('Email content for OTP search:', {
+              subject: parsed.subject,
+              textPreview: parsed.text?.substring(0, 200),
+              htmlPreview: parsed.html?.substring(0, 200),
+              searchTextLength: searchText.length,
+              otpPatternsCount: otpPatterns.length
+            });
+            
             let foundOtp: string | null = null;
             let matchPattern: string = '';
             
@@ -295,6 +313,12 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                 const startTime = Date.now();
                 
                 const matches = Array.from(limitedText.matchAll(pattern));
+                
+                console.log('Pattern test result:', {
+                  pattern: pattern.source,
+                  matchesFound: matches.length,
+                  matches: matches.map(m => m[0])
+                });
                 
                 // Timeout check (prevent long-running regex)
                 if (Date.now() - startTime > 500) { // 500ms max

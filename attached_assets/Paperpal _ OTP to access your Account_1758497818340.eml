@@ -1,0 +1,100 @@
+Delivered-To: byteshop789@gmail.com
+Received: by 2002:a54:2446:0:b0:2a5:c72e:5659 with SMTP id k6csp1605139eco;
+        Sun, 21 Sep 2025 16:35:44 -0700 (PDT)
+X-Google-Smtp-Source: AGHT+IHgubCQFCM0jd/WUAVLVDgrDSL8EMtnUOKKB1QbjrxrupkHRK3IVDRXuVq9Fq3E3dMJ8H4y
+X-Received: by 2002:ad4:5aa1:0:b0:78d:5496:9c39 with SMTP id 6a1803df08f44-7991f2324e4mr123187716d6.62.1758497744675;
+        Sun, 21 Sep 2025 16:35:44 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1758497744; cv=none;
+        d=google.com; s=arc-20240605;
+        b=L5SEJthIaYYJLTR0rFAPBLHKCNXy/oEm72zvhVDhF7SZ5F4pwqh8vgakvdkAvF1ekw
+         YwoQEREaAKR3lzdO4hUdp/1xK8p2hk5UjkWWxddoYhzThWrqjeVCx+WJ9m4UAXZBOiAr
+         KHAOVF4vtHdUpdkzSJp3KXjYbZTcOLC5YVLo2kkvMSlpXziPLSJ1UIUfxcdB/JYdrQqp
+         k0ynyhP1ImMmRuKLpbDmgL14k/x2dkJJTSWUL4Xs7q91b4to0qt/yx+Yh/vQJkeAkL9g
+         /rBOeuYwwIMiXzMsutsjq1Y2qlz/bLuiWo7kIheBiAyyYNgaP3GjNwmMufAhW8x5nyzV
+         Jzdg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=content-transfer-encoding:to:date:mime-version:message-id:subject
+         :from:dkim-signature:dkim-signature;
+        bh=P8XH9eAZMBPWrKmGaFC0mBzdIwMNwP9U7YCHQfs4wjY=;
+        fh=8lCYHeWbhLXylaQevi/iKO5vohhjHlAC1VGrC56qWwU=;
+        b=XSPi3ZiAJa9jpUdKM8li5AD4EI8+4FQ1wXAzP3Wa3rkI+LFcELs8AA0tvnn96dUepC
+         1jEXLPPlo9tNFPUq1kGrxXv0f/4wpOVsbCtbasNW3G9XRhFWyHAJ59Xlk/dfKKnqQpWd
+         cclfOW/ENcQvkiR7WHQ+UCTQaRZzSFrUPovDoYfhYAP6g8CPflSmkA0oMxEpsWRf1UmO
+         DLegpwyNuOEdyjohlkQGZiDFkO9llUcN6x0a3cfK0knUq5nVesm+TjiX1YqfUl9hcRR/
+         LeChafG8ojVIgYfhqbZXNHpH/L6O2VYiTuKds4Yrj4BefB8vzdOhB2ajUr4ApTeEDuO1
+         FEpQ==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@paperpal.com header.s=s1 header.b=OIG2mORe;
+       dkim=pass header.i=@sendgrid.info header.s=smtpapi header.b=xiTtmSiz;
+       spf=softfail (google.com: domain of transitioning hello@paperpal.com does not designate 167.89.65.101 as permitted sender) smtp.mailfrom=hello@paperpal.com;
+       dmarc=pass (p=QUARANTINE sp=QUARANTINE dis=NONE) header.from=paperpal.com
+Return-Path: <hello@paperpal.com>
+Received: from o4.ptr2491.wileyeditingservices.com (o4.ptr2491.wileyeditingservices.com. [167.89.65.101])
+        by mx.google.com with ESMTPS id 6a1803df08f44-7935aa7573asi37478346d6.1295.2025.09.21.16.35.44
+        for <byteshop789@gmail.com>
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sun, 21 Sep 2025 16:35:44 -0700 (PDT)
+Received-SPF: softfail (google.com: domain of transitioning hello@paperpal.com does not designate 167.89.65.101 as permitted sender) client-ip=167.89.65.101;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@paperpal.com header.s=s1 header.b=OIG2mORe;
+       dkim=pass header.i=@sendgrid.info header.s=smtpapi header.b=xiTtmSiz;
+       spf=softfail (google.com: domain of transitioning hello@paperpal.com does not designate 167.89.65.101 as permitted sender) smtp.mailfrom=hello@paperpal.com;
+       dmarc=pass (p=QUARANTINE sp=QUARANTINE dis=NONE) header.from=paperpal.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=paperpal.com;
+	h=from:subject:mime-version:date:to:content-type:
+	content-transfer-encoding:cc:content-type:date:feedback-id:from:subject:to;
+	s=s1; bh=P8XH9eAZMBPWrKmGaFC0mBzdIwMNwP9U7YCHQfs4wjY=;
+	b=OIG2mORe+6rz+HM7aXffrNGafT9UeJD1Tp61ySRv3zALBFDRDPj1QKQmxuye8fnRCsiI
+	td9k4e8IbGow7pYiA0S0YbitVe62sO2tnTh2CjxeEbkNKtjY4Gufjp1j6PEdQwuLVAOhab
+	LYuow3hEjd2jEYxkSosjnTYQ4CFopPypv7wjdYiyJ83zQVcMZVtmmZR8H0mlbBP5x7cgv2
+	yvzbTYgthtKMj0AGdTK3Ug7nRPwW6tIDl4ZJ3IKvgdIN/EWM1UHvtwPAtcJ4gVd3VBV+kU
+	tLc0ahJ0zkkoNU48skfzSzpXzfBK35ILp5Z2KENqD7jueCqeoYar+JGV9GP/FNNQ==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=sendgrid.info;
+	h=from:subject:mime-version:date:to:content-type:
+	content-transfer-encoding:cc:content-type:date:feedback-id:from:subject:to;
+	s=smtpapi; bh=P8XH9eAZMBPWrKmGaFC0mBzdIwMNwP9U7YCHQfs4wjY=;
+	b=xiTtmSiz4cz9Tdq7BgMrn7R3ARiufNOANALg5SzP8F5iAahczttsDhaELhGjcpECzFwV
+	t+9zeZqg5HJlsfgo91tcgwEPKMWOYJ/79ltkOc9K+zLqyuHsp1QaFUEihRG+UQHbIGmDNG
+	mJ1JYbzDjz78v2mHEKaENrEIE7S3jEoQY=
+Received: by recvd-57884d8d65-cq8rp with SMTP id recvd-57884d8d65-cq8rp-1-68D08BCE-B5
+	2025-09-21 23:35:42.925510418 +0000 UTC m=+1642936.833056213
+Received: from [127.0.0.1] (unknown)
+	by geopod-ismtpd-4 (SG) with ESMTP
+	id 7CCroeJ6QzWQe-xZF92jKw
+	for <byteshop789@gmail.com>;
+	Sun, 21 Sep 2025 23:35:42.663 +0000 (UTC)
+From: Paperpal <hello@paperpal.com>
+Subject: Paperpal : OTP to access your Account
+Message-ID: <dabd808d7547522eafe23e87ef7ccdd8@paperpal.com>
+MIME-Version: 1.0
+Date: Sun, 21 Sep 2025 23:35:42 +0000 (UTC)
+X-SG-EID: 
+ =?us-ascii?Q?u001=2EMHHaS7s9TMzm4NAMznKJU=2FtFVYLY1Z4psoohhZHcXb1scyAvHeLzeNveH?=
+ =?us-ascii?Q?gx2b6JolSL5SMIC7KSTw6BYPmVvk34tFz85lbnt?=
+ =?us-ascii?Q?mAylqcdaFIZOdHwm7dQkTgzE25oTeboJbo2fYjC?=
+ =?us-ascii?Q?gWthSUXoYPUrRymnO1vBCpwzHpwkvOYQvq4zcrj?=
+ =?us-ascii?Q?ruCXtJFbXor0ftP16SAMgGFHku3Nz8tZQzQz8NV?=
+ =?us-ascii?Q?xxzQA69unPo4XLZx0UptuQ=3D?=
+To: byteshop789@gmail.com
+X-Entity-ID: u001.ZpsDhQkk5bMW6ULTC2KXXA==
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html><html><head><title>Your Email Title</title></head><body><p>D=
+ear Byte Shop</p>
+<p>Your One Time Password (OTP) to login to your Paperpal account is: 81142=
+9</p>
+<p>The OTP is valid for 60 minutes. Please do not share this OTP with anyon=
+e.</p>
+<br/>
+<p>Regards, </p>
+<p>Paperpal Team</p><img src=3D"https://url8202.paperpal.com/wf/open?upn=3D=
+u001.w9wwzrrMC3Ep2JrRe056CCj4LHZ2yGoB6qV7HGdH3JxDj5bqUkcEx47hPyDNyjYq3UlfwC=
+ay7KX6D9YaIs2PZddiMVT9Vs8jBnZTOohooxh0SLfMNA7LUylnwdMrt50pKfnSHtwhaCUt4n-2F=
+gz2bc8ZxvOF51jCbBhkmT3v21OXVNUEv57hnWqA4IUFVB9OGl7T3yN8FYQdEdjG6LaYBPiQ-3D-=
+3D" alt=3D"" width=3D"1" height=3D"1" border=3D"0" style=3D"height:1px !imp=
+ortant;width:1px !important;border-width:0 !important;margin-top:0 !importa=
+nt;margin-bottom:0 !important;margin-right:0 !important;margin-left:0 !impo=
+rtant;padding-top:0 !important;padding-bottom:0 !important;padding-right:0 =
+!important;padding-left:0 !important;"/></body></html>
