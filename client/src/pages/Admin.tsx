@@ -389,16 +389,76 @@ export default function Admin({ user }: AdminProps) {
         activationMode="manual"
         className="space-y-6"
       >
-        <TabsList>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="mappings">Mappings</TabsTrigger>
-          <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="users">User Access</TabsTrigger>
-          <TabsTrigger value="bulk">Bulk Management</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsList
+          onKeyDown={(e) => {
+            // Disable all keyboard navigation on tabs
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <TabsTrigger 
+            value="products"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Products
+          </TabsTrigger>
+          <TabsTrigger 
+            value="accounts"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Accounts
+          </TabsTrigger>
+          <TabsTrigger 
+            value="mappings"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Mappings
+          </TabsTrigger>
+          <TabsTrigger 
+            value="credentials"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Credentials
+          </TabsTrigger>
+          <TabsTrigger 
+            value="users"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            User Access
+          </TabsTrigger>
+          <TabsTrigger 
+            value="bulk"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Bulk Management
+          </TabsTrigger>
+          <TabsTrigger 
+            value="notifications"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger 
+            value="audit"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Audit Logs
+          </TabsTrigger>
+          <TabsTrigger 
+            value="analytics"
+            tabIndex={-1}
+            onKeyDown={(e) => e.preventDefault()}
+          >
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6">
