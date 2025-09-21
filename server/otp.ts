@@ -224,6 +224,14 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           // Search for emails within the configured time window
           const since = new Date();
           since.setTime(since.getTime() - (timeWindow * 60 * 60 * 1000));
+          
+          console.log('Email search configuration:', {
+            timeWindow,
+            sinceTime: since.toISOString(),
+            senderWhitelistLength: senderWhitelist.length,
+            senderBlacklistLength: senderBlacklist.length,
+            otpPatternsLength: otpPatterns.length
+          });
 
           // Search for emails within time window
           let messages: any[] = [];
@@ -257,6 +265,12 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
 
           // Fetch the latest messages (up to EMAIL_FETCH_LIMIT)
           const messagesToFetch = Array.isArray(messages) ? messages.slice(-EMAIL_FETCH_LIMIT) : [];
+          
+          console.log('Messages to fetch:', {
+            totalFound: messages.length,
+            messagesToFetch: messagesToFetch,
+            fetchLimit: EMAIL_FETCH_LIMIT
+          });
           
           for (const uid of messagesToFetch.reverse()) {
             const { content } = await client.download(uid);
