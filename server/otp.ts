@@ -268,8 +268,8 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
               from: parsed.from?.text,
               hasText: !!parsed.text,
               hasHtml: !!parsed.html,
-              textLength: parsed.text?.length,
-              htmlLength: parsed.html?.length
+              textLength: typeof parsed.text === 'string' ? parsed.text.length : 0,
+              htmlLength: typeof parsed.html === 'string' ? parsed.html.length : 0
             });
 
             // Advanced sender filtering
