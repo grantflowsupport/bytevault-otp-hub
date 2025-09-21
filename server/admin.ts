@@ -211,7 +211,12 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
   try {
     // Convert expires_at string to Date object if provided
     const requestBody = { ...req.body };
-    if (requestBody.expires_at && typeof requestBody.expires_at === 'string' && requestBody.expires_at.trim() !== '') {
+    
+    // First handle empty strings/null for unlimited access
+    if (requestBody.expires_at === '' || requestBody.expires_at === null || requestBody.expires_at === undefined) {
+      requestBody.expires_at = null;
+      console.log('Set expires_at to null for unlimited access');
+    } else if (requestBody.expires_at && typeof requestBody.expires_at === 'string' && requestBody.expires_at.trim() !== '') {
       console.log('Original expires_at:', requestBody.expires_at);
       
       try {
