@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -36,6 +37,31 @@ export default function Admin({ user }: AdminProps) {
     fetch_from_filter: '',
     is_active: true,
     priority: 100,
+  });
+
+  const [mappingForm, setMappingForm] = useState({
+    product_id: '',
+    account_id: '',
+    is_active: true,
+    sender_override: '',
+    otp_regex_override: '',
+    weight: 100,
+  });
+
+  const [credentialForm, setCredentialForm] = useState({
+    product_id: '',
+    label: 'Default',
+    login_email: '',
+    login_username: '',
+    login_password: '',
+    notes: '',
+    is_active: true,
+  });
+
+  const [userAccessForm, setUserAccessForm] = useState({
+    user_id: '',
+    product_id: '',
+    expires_at: '',
   });
 
   // Fetch products
@@ -167,6 +193,139 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Create mapping mutation
+  const createMappingMutation = useMutation({
+    mutationFn: async (data: typeof mappingForm) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/map', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create mapping');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Product-Account mapping created successfully",
+      });
+      setMappingForm({
+        product_id: '',
+        account_id: '',
+        is_active: true,
+        sender_override: '',
+        otp_regex_override: '',
+        weight: 100,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  // Create credential mutation
+  const createCredentialMutation = useMutation({
+    mutationFn: async (data: typeof credentialForm) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/credential', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create credential');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Product credential created successfully",
+      });
+      setCredentialForm({
+        product_id: '',
+        label: 'Default',
+        login_email: '',
+        login_username: '',
+        login_password: '',
+        notes: '',
+        is_active: true,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  // Create user access mutation
+  const createUserAccessMutation = useMutation({
+    mutationFn: async (data: typeof userAccessForm) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/user-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create user access');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User access granted successfully",
+      });
+      setUserAccessForm({
+        user_id: '',
+        product_id: '',
+        expires_at: '',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createProductMutation.mutate(productForm);
@@ -175,6 +334,21 @@ export default function Admin({ user }: AdminProps) {
   const handleAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createAccountMutation.mutate(accountForm);
+  };
+
+  const handleMappingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMappingMutation.mutate(mappingForm);
+  };
+
+  const handleCredentialSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createCredentialMutation.mutate(credentialForm);
+  };
+
+  const handleUserAccessSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createUserAccessMutation.mutate(userAccessForm);
   };
 
   return (
@@ -443,37 +617,295 @@ export default function Admin({ user }: AdminProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="mappings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Product-Account Mappings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Product-account mapping functionality will be implemented here.</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="mappings" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Create Mapping Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Product-Account Mapping</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleMappingSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="mapping-product">Product</Label>
+                    <Select value={mappingForm.product_id} onValueChange={(value) => setMappingForm({...mappingForm, product_id: value})}>
+                      <SelectTrigger data-testid="select-mapping-product">
+                        <SelectValue placeholder="Select a product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products?.map((product: any) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.title} ({product.slug})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="mapping-account">IMAP Account</Label>
+                    <Select value={mappingForm.account_id} onValueChange={(value) => setMappingForm({...mappingForm, account_id: value})}>
+                      <SelectTrigger data-testid="select-mapping-account">
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts?.map((account: any) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.label} ({account.imap_host})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="weight">Weight (Priority)</Label>
+                      <Input
+                        id="weight"
+                        type="number"
+                        value={mappingForm.weight}
+                        onChange={(e) => setMappingForm({...mappingForm, weight: parseInt(e.target.value)})}
+                        placeholder="100"
+                        data-testid="input-mapping-weight"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="sender-override">Sender Override (optional)</Label>
+                    <Input
+                      id="sender-override"
+                      value={mappingForm.sender_override}
+                      onChange={(e) => setMappingForm({...mappingForm, sender_override: e.target.value})}
+                      placeholder="noreply@example.com"
+                      data-testid="input-sender-override"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="regex-override">OTP Regex Override (optional)</Label>
+                    <Input
+                      id="regex-override"
+                      value={mappingForm.otp_regex_override}
+                      onChange={(e) => setMappingForm({...mappingForm, otp_regex_override: e.target.value})}
+                      placeholder="\b\d{6}\b"
+                      data-testid="input-regex-override"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="mapping_active"
+                      checked={mappingForm.is_active}
+                      onCheckedChange={(checked) => setMappingForm({...mappingForm, is_active: !!checked})}
+                      data-testid="checkbox-mapping-active"
+                    />
+                    <Label htmlFor="mapping_active">Active</Label>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createMappingMutation.isPending || !mappingForm.product_id || !mappingForm.account_id}
+                    data-testid="button-create-mapping"
+                  >
+                    {createMappingMutation.isPending ? 'Creating...' : 'Create Mapping'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Existing Mappings List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Existing Mappings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Mapping list will be displayed here when API is available.</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="credentials">
-          <Card>
-            <CardHeader>
-              <CardTitle>Product Credentials</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Product credentials management will be implemented here.</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="credentials" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Create Credential Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Product Credential</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCredentialSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="credential-product">Product</Label>
+                    <Select value={credentialForm.product_id} onValueChange={(value) => setCredentialForm({...credentialForm, product_id: value})}>
+                      <SelectTrigger data-testid="select-credential-product">
+                        <SelectValue placeholder="Select a product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products?.map((product: any) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.title} ({product.slug})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="credential-label">Label</Label>
+                    <Input
+                      id="credential-label"
+                      value={credentialForm.label}
+                      onChange={(e) => setCredentialForm({...credentialForm, label: e.target.value})}
+                      placeholder="Default"
+                      required
+                      data-testid="input-credential-label"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="login-email">Login Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      value={credentialForm.login_email}
+                      onChange={(e) => setCredentialForm({...credentialForm, login_email: e.target.value})}
+                      placeholder="user@example.com"
+                      data-testid="input-login-email"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="login-username">Login Username</Label>
+                    <Input
+                      id="login-username"
+                      value={credentialForm.login_username}
+                      onChange={(e) => setCredentialForm({...credentialForm, login_username: e.target.value})}
+                      placeholder="username"
+                      data-testid="input-login-username"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="login-password">Login Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      value={credentialForm.login_password}
+                      onChange={(e) => setCredentialForm({...credentialForm, login_password: e.target.value})}
+                      placeholder="••••••••"
+                      data-testid="input-login-password"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="credential-notes">Notes</Label>
+                    <Textarea
+                      id="credential-notes"
+                      value={credentialForm.notes}
+                      onChange={(e) => setCredentialForm({...credentialForm, notes: e.target.value})}
+                      placeholder="Additional notes for users"
+                      rows={3}
+                      data-testid="input-credential-notes"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="credential_active"
+                      checked={credentialForm.is_active}
+                      onCheckedChange={(checked) => setCredentialForm({...credentialForm, is_active: !!checked})}
+                      data-testid="checkbox-credential-active"
+                    />
+                    <Label htmlFor="credential_active">Active</Label>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createCredentialMutation.isPending || !credentialForm.product_id}
+                    data-testid="button-create-credential"
+                  >
+                    {createCredentialMutation.isPending ? 'Creating...' : 'Create Credential'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Existing Credentials List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Existing Credentials</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Credential list will be displayed here when API is available.</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Access Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">User access management will be implemented here.</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="users" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Grant User Access Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Grant User Access</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUserAccessSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="user-id">User ID</Label>
+                    <Input
+                      id="user-id"
+                      value={userAccessForm.user_id}
+                      onChange={(e) => setUserAccessForm({...userAccessForm, user_id: e.target.value})}
+                      placeholder="User UUID from Supabase Auth"
+                      required
+                      data-testid="input-user-id"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Get User UUID from Supabase Auth dashboard
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="access-product">Product</Label>
+                    <Select value={userAccessForm.product_id} onValueChange={(value) => setUserAccessForm({...userAccessForm, product_id: value})}>
+                      <SelectTrigger data-testid="select-access-product">
+                        <SelectValue placeholder="Select a product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products?.map((product: any) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.title} ({product.slug})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="expires-at">Expires At (optional)</Label>
+                    <Input
+                      id="expires-at"
+                      type="datetime-local"
+                      value={userAccessForm.expires_at}
+                      onChange={(e) => setUserAccessForm({...userAccessForm, expires_at: e.target.value})}
+                      data-testid="input-expires-at"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty for unlimited access
+                    </p>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createUserAccessMutation.isPending || !userAccessForm.user_id || !userAccessForm.product_id}
+                    data-testid="button-grant-access"
+                  >
+                    {createUserAccessMutation.isPending ? 'Granting...' : 'Grant Access'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Existing User Access List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Existing User Access</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">User access list will be displayed here when API is available.</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
