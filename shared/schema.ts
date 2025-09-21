@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, integer, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, integer, timestamp, uuid, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -38,7 +38,9 @@ export const productAccounts = pgTable("product_accounts", {
   sender_override: text("sender_override"),
   otp_regex_override: text("otp_regex_override"),
   weight: integer("weight").notNull().default(100),
-});
+}, (table) => ({
+  productAccountUnique: unique().on(table.product_id, table.account_id),
+}));
 
 // Product credentials
 export const productCredentials = pgTable("product_credentials", {
@@ -60,7 +62,9 @@ export const userAccess = pgTable("user_access", {
   product_id: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   granted_at: timestamp("granted_at", { withTimezone: true }).notNull().default(sql`now()`),
   expires_at: timestamp("expires_at", { withTimezone: true }),
-});
+}, (table) => ({
+  userProductUnique: unique().on(table.user_id, table.product_id),
+}));
 
 // OTP logs
 export const otpLogs = pgTable("otp_logs", {

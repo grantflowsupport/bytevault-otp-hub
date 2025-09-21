@@ -50,7 +50,7 @@ router.post('/account', requireAdmin, async (req: AuthenticatedRequest, res) => 
     const { data: result, error } = await supabaseAdmin
       .from('accounts')
       .upsert(validatedData)
-      .select()
+      .select('id, label, imap_host, imap_port, imap_user, otp_regex, fetch_from_filter, is_active, priority, last_used_at, created_at')
       .single();
 
     if (error) {

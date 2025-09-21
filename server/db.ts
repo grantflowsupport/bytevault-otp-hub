@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Supabase configuration for authentication and data storage
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
 const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE!;
