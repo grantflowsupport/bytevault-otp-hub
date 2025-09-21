@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Removed Tabs import - using custom implementation
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -70,24 +70,6 @@ export default function Admin({ user }: AdminProps) {
 
   // Tab state management
   const [activeTab, setActiveTab] = useState("products");
-
-  // Prevent Tab key when Alt is held (Alt+Tab system shortcut)
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // If Alt is held and Tab is pressed, prevent tab navigation
-      if (event.altKey && event.key === 'Tab') {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-
-    // Capture the event early to prevent tabs from handling it
-    document.addEventListener('keydown', handleKeyDown, true);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
-    };
-  }, []);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -383,85 +365,42 @@ export default function Admin({ user }: AdminProps) {
         <p className="text-muted-foreground mt-1">Manage products, accounts, and user access</p>
       </div>
 
-      <Tabs 
-        value={activeTab}
-        onValueChange={setActiveTab}
-        activationMode="manual"
-        className="space-y-6"
-      >
-        <TabsList
-          onKeyDown={(e) => {
-            // Disable all keyboard navigation on tabs
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          <TabsTrigger 
-            value="products"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Products
-          </TabsTrigger>
-          <TabsTrigger 
-            value="accounts"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Accounts
-          </TabsTrigger>
-          <TabsTrigger 
-            value="mappings"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Mappings
-          </TabsTrigger>
-          <TabsTrigger 
-            value="credentials"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Credentials
-          </TabsTrigger>
-          <TabsTrigger 
-            value="users"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            User Access
-          </TabsTrigger>
-          <TabsTrigger 
-            value="bulk"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Bulk Management
-          </TabsTrigger>
-          <TabsTrigger 
-            value="notifications"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger 
-            value="audit"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Audit Logs
-          </TabsTrigger>
-          <TabsTrigger 
-            value="analytics"
-            tabIndex={-1}
-            onKeyDown={(e) => e.preventDefault()}
-          >
-            Analytics
-          </TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        {/* Custom Tab Navigation */}
+        <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+          {[
+            { id: "products", label: "Products" },
+            { id: "accounts", label: "Accounts" },
+            { id: "mappings", label: "Mappings" },
+            { id: "credentials", label: "Credentials" },
+            { id: "users", label: "User Access" },
+            { id: "bulk", label: "Bulk Management" },
+            { id: "notifications", label: "Notifications" },
+            { id: "audit", label: "Audit Logs" },
+            { id: "analytics", label: "Analytics" }
+          ].map((tab) => (
+            <Button
+              key={tab.id}
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "hover:bg-background/50"
+              }`}
+              tabIndex={-1}
+              onKeyDown={(e) => e.preventDefault()}
+              data-testid={`tab-${tab.id}`}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
 
-        <TabsContent value="products" className="space-y-6">
+        {/* Products Tab */}
+        {activeTab === "products" && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Create Product Form */}
             <Card>
@@ -559,9 +498,12 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="accounts" className="space-y-6">
+        {/* Accounts Tab */}
+        {activeTab === "accounts" && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Create Account Form */}
             <Card>
@@ -709,9 +651,12 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="mappings" className="space-y-6">
+        {/* Mappings Tab */}
+        {activeTab === "mappings" && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Create Mapping Form */}
             <Card>
@@ -814,9 +759,12 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="credentials" className="space-y-6">
+        {/* Credentials Tab */}
+        {activeTab === "credentials" && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Create Credential Form */}
             <Card>
@@ -925,9 +873,12 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="users" className="space-y-6">
+        {/* Users Tab */}
+        {activeTab === "users" && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Grant User Access Form */}
             <Card>
@@ -1000,24 +951,37 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="bulk" className="space-y-6">
+        {/* Bulk Management Tab */}
+        {activeTab === "bulk" && (
+        <div className="space-y-6">
           <BulkUserManagement />
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="notifications" className="space-y-6">
+        {/* Notifications Tab */}
+        {activeTab === "notifications" && (
+        <div className="space-y-6">
           <NotificationSettings />
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="audit" className="space-y-6">
+        {/* Audit Logs Tab */}
+        {activeTab === "audit" && (
+        <div className="space-y-6">
           <AuditLogs />
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="analytics" className="space-y-6">
+        {/* Analytics Tab */}
+        {activeTab === "analytics" && (
+        <div className="space-y-6">
           <AnalyticsDashboard />
-        </TabsContent>
-      </Tabs>
+        </div>
+        )}
+      </div>
     </div>
   );
 }
