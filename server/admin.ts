@@ -363,7 +363,7 @@ router.get('/mappings', requireAdmin, async (req: AuthenticatedRequest, res) => 
         products!inner(id, title, slug),
         accounts!inner(id, label)
       `)
-      .order('created_at', { ascending: false });
+      .order('weight', { ascending: false });
 
     if (error) {
       return res.status(400).json({ error: error.message });
