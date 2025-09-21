@@ -211,7 +211,7 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
   try {
     // Convert expires_at string to Date object if provided
     const requestBody = { ...req.body };
-    if (requestBody.expires_at && typeof requestBody.expires_at === 'string') {
+    if (requestBody.expires_at && typeof requestBody.expires_at === 'string' && requestBody.expires_at.trim() !== '') {
       console.log('Original expires_at:', requestBody.expires_at);
       
       try {
@@ -241,6 +241,10 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
         console.error('Date parsing error:', error);
         return res.status(400).json({ error: 'Invalid date format. Please use DD-MM-YYYY HH:MM format.' });
       }
+    } else if (requestBody.expires_at === '' || requestBody.expires_at === null) {
+      // Handle empty dates as unlimited access (null)
+      requestBody.expires_at = null;
+      console.log('Set expires_at to null for unlimited access');
     }
     
     console.log('Request body before validation:', requestBody);

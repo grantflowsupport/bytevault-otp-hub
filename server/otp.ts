@@ -144,10 +144,21 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
     }
 
     // Get ranked accounts for this product
+    console.log('Searching for accounts for product:', { productId: product.id, productSlug: product.slug });
+    
     const { data: accounts, error: accountsError } = await supabaseAdmin
       .rpc('get_ranked_accounts', { p_product_id: product.id });
 
+    console.log('RPC get_ranked_accounts result:', { 
+      accounts, 
+      accountsError, 
+      accountsLength: accounts?.length,
+      errorCode: accountsError?.code,
+      errorMessage: accountsError?.message 
+    });
+
     if (accountsError || !accounts || accounts.length === 0) {
+      console.log('No accounts found - logging no_accounts error');
       await logOTP(userId, product.id, null, 'no_accounts', 'No active accounts configured');
       return res.status(404).json({ error: 'no_accounts' });
     }
