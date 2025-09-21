@@ -68,29 +68,8 @@ export default function Admin({ user }: AdminProps) {
     expires_at: '',
   });
 
-  // Prevent Alt+Tab from interfering with tab navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Check for Alt+Tab combination
-      if (event.altKey && event.key === 'Tab') {
-        console.log('Alt+Tab detected, preventing tab component from handling it');
-        // Prevent the event from reaching the tabs component
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        return false;
-      }
-    };
-
-    // Add multiple listeners to ensure we catch the event
-    document.addEventListener('keydown', handleKeyDown, true);
-    window.addEventListener('keydown', handleKeyDown, true);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
-      window.removeEventListener('keydown', handleKeyDown, true);
-    };
-  }, []);
+  // Tab state management
+  const [activeTab, setActiveTab] = useState("products");
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -387,17 +366,10 @@ export default function Admin({ user }: AdminProps) {
       </div>
 
       <Tabs 
-        defaultValue="products" 
+        value={activeTab}
+        onValueChange={setActiveTab}
+        activationMode="manual"
         className="space-y-6"
-        onKeyDown={(event) => {
-          // Prevent Alt+Tab from triggering tab navigation
-          if (event.altKey && event.key === 'Tab') {
-            console.log('Alt+Tab detected on Tabs component, preventing default');
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-        }}
       >
         <TabsList>
           <TabsTrigger value="products">Products</TabsTrigger>
