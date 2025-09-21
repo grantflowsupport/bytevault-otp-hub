@@ -143,13 +143,41 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
       return res.status(403).json({ error: 'access_expired' });
     }
 
-    // Get ranked accounts for this product
+    // Get ranked accounts for this product using Supabase direct queries
     console.log('Searching for accounts for product:', { productId: product.id, productSlug: product.slug });
     
-    const { data: accounts, error: accountsError } = await supabaseAdmin
-      .rpc('get_ranked_accounts', { p_product_id: product.id });
+    const { data: accountMappings, error: accountsError } = await supabaseAdmin
+      .from('product_accounts')
+      .select(`
+        weight,
+        sender_override,
+        otp_regex_override,
+        accounts!inner (
+          id,
+          label,
+          imap_host,
+          imap_port,
+          imap_user,
+          imap_password_enc,
+          otp_regex,
+          fetch_from_filter,
+          priority
+        )
+      `)
+      .eq('product_id', product.id)
+      .eq('is_active', true)
+      .eq('accounts.is_active', true)
+      .order('weight', { ascending: false });
 
-    console.log('RPC get_ranked_accounts result:', { 
+    // Transform the data to match expected format
+    const accounts = accountMappings?.map(mapping => ({
+      ...mapping.accounts,
+      weight: mapping.weight,
+      sender_override: mapping.sender_override,
+      otp_regex_override: mapping.otp_regex_override,
+    })) || [];
+
+    console.log('Supabase accounts query result:', { 
       accounts, 
       accountsError, 
       accountsLength: accounts?.length,
@@ -293,9 +321,9 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                 await supabaseAdmin
                   .from('accounts')
                   .update({ last_used_at: new Date().toISOString() })
-                  .eq('id', account.account_id);
+                  .eq('id', account.id);
 
-                await logOTP(userId, product.id, account.account_id, 'success', 
+                await logOTP(userId, product.id, account.id, 'success', 
                   `OTP extracted (pattern: ${matchPattern}, relevance: ${isOtpRelated ? 'high' : 'low'}, length: ${foundOtp.length})`);
                 
                 lock.release();
@@ -318,11 +346,11 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
         } catch (imapError: any) {
           if (lock) lock.release();
           await client.logout();
-          await logOTP(userId, product.id, account.account_id, 'error', `IMAP error: ${imapError?.message || String(imapError)}`);
+          await logOTP(userId, product.id, account.id, 'error', `IMAP error: ${imapError?.message || String(imapError)}`);
           continue;
         }
       } catch (error: any) {
-        await logOTP(userId, product.id, account.account_id, 'error', `Connection error: ${error?.message || String(error)}`);
+        await logOTP(userId, product.id, account.id, 'error', `Connection error: ${error?.message || String(error)}`);
         continue;
       }
     }
