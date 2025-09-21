@@ -1,0 +1,337 @@
+You are Replit AI.
+
+BUILD THIS EXACT APP (NO DEVIATIONS)
+
+TITLE: “ByteVault OTP Hub — Multi-Product, Multi-Account OTP Gateway”
+DOMAIN: https://otp.bytevault.co.in
+CONTACT: admin@otp.bytevault.co.in
+
+CRITICAL PRE-FLIGHT (STOP AND DO THIS FIRST):
+1) PROMPT ME TO ENTER ALL SECRETS. DO NOT GENERATE ANY CODE UNTIL I PROVIDE VALUES (or placeholders) FOR EACH:
+   - SUPABASE_URL
+   - SUPABASE_ANON_KEY
+   - SUPABASE_SERVICE_ROLE              # server-only
+   - CRYPTO_SECRET_KEY                  # ≥32 chars for AES-GCM
+   - EMAIL_FETCH_LIMIT                  # e.g., 20
+   - DEFAULT_OTP_REGEX                  # default: \b\d{6}\b
+   - VITE_SUPABASE_URL                  # same as SUPABASE_URL (for web)
+   - VITE_SUPABASE_ANON_KEY             # same as SUPABASE_ANON_KEY (for web)
+2) CONFIRM back that all secrets are saved. ONLY THEN proceed.
+
+SCOPE (WHAT TO BUILD, END-TO-END):
+- A production-ready portal where users log in, see products they’ve been granted, view the shared credentials (e.g., login email), and press “Get OTP” to fetch the latest OTP from mapped inboxes.
+- Unlimited OTP requests while access is valid (add light rate-limit to prevent abuse).
+- Multi-product and multi-account with many-to-many mapping:
+  - One inbox can serve many products.
+  - One product can use many inboxes (rotation + fallback).
+- Admin panel for CRUD:
+  - Products, Accounts (IMAP inboxes), Product↔Account mappings, Product Credentials (what users see), User Access (grant/revoke with expiry).
+- Works with ANY IMAP provider: Gmail, Outlook/O365, Zoho, Proton (paid IMAP), and custom domain mailboxes like NeoSpace (admin will enter host/port/user/password).
+
+NON-NEGOTIABLES:
+- Frontend: React (Vite)
+- Backend: Node.js (Express)
+- Database & Auth: Supabase with RLS ON (no local DB, no Replit DB)
+- Mail fetching: IMAP (imapflow) + mailparser
+- Crypto: AES-256-GCM for IMAP passwords at rest (never exposed to client)
+- SERVICE_ROLE is server-only; never shipped to web.
+
+PROJECT STRUCTURE (CREATE EXACTLY):
+root/
+  package.json
+  server/
+    index.js
+    auth.js
+    db.js
+    crypto.js
+    otp.js
+    admin.js
+  web/
+    index.html
+    vite.config.js
+    src/
+      main.jsx
+      supabaseClient.js
+      App.jsx
+      pages/
+        Login.jsx
+        Dashboard.jsx
+        Admin.jsx
+      components/
+        ProductCard.jsx
+        OTPModal.jsx
+
+DEPENDENCIES (INSTALL NOW):
+- runtime: @supabase/supabase-js, express, cors, imapflow, mailparser, concurrently
+- dev: vite, @vitejs/plugin-react, nodemon
+
+NPM SCRIPTS:
+- "dev": run API (3000) and Web (5173) together (proxy /api → 3000)
+- "dev-api": nodemon server/index.js
+- "dev-web": vite --port 5173
+- "build": vite build
+- "start": node server/index.js
+
+SUPABASE: RUN THIS SCHEMA + RLS + RPC (ASK ME TO CONFIRM IT’S EXECUTED BEFORE CODING FURTHER):
+----------------------------------------------------------------
+-- EXTENSIONS
+create extension if not exists pgcrypto;
+
+-- ADMIN CHECK via JWT email
+create or replace function public.is_admin()
+returns boolean language sql stable as $$
+  select coalesce((auth.jwt() ->> 'email') in (
+    'harryroger798@gmail.com',
+    'admin@otp.bytevault.co.in'
+  ), false);
+$$;
+
+-- PRODUCTS
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  slug text unique not null,
+  title text not null,
+  description text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- ACCOUNTS (IMAP inboxes)
+create table if not exists public.accounts (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  imap_host text not null,
+  imap_port int not null default 993,
+  imap_user text not null,
+  imap_password_enc text not null,             -- AES-GCM ciphertext
+  otp_regex text not null default '\b\d{6}\b',
+  fetch_from_filter text,
+  is_active boolean not null default true,
+  priority int not null default 100,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- M:N mapping: products ↔ accounts
+create table if not exists public.product_accounts (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  is_active boolean not null default true,
+  sender_override text,
+  otp_regex_override text,
+  weight int not null default 100,
+  unique (product_id, account_id)
+);
+
+-- Credentials users will see (login to the third-party site)
+create table if not exists public.product_credentials (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  label text not null default 'Default',
+  login_email text,
+  login_username text,
+  login_password text,
+  notes text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- User access with expiry
+create table if not exists public.user_access (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  granted_at timestamptz not null default now(),
+  expires_at timestamptz,
+  unique (user_id, product_id)
+);
+
+-- OTP logs
+create table if not exists public.otp_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id),
+  product_id uuid references public.products(id),
+  account_id uuid references public.accounts(id),
+  status text not null,    -- success | no_mail | regex_miss | error | rate_limited
+  detail text,
+  created_at timestamptz not null default now()
+);
+
+-- Enable RLS
+alter table public.products enable row level security;
+alter table public.accounts enable row level security;
+alter table public.product_accounts enable row level security;
+alter table public.product_credentials enable row level security;
+alter table public.user_access enable row level security;
+alter table public.otp_logs enable row level security;
+
+-- Admin full control
+create policy "admin full products" on public.products
+for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "admin full accounts" on public.accounts
+for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "admin full product_accounts" on public.product_accounts
+for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "admin full credentials" on public.product_credentials
+for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "admin read logs" on public.otp_logs
+for select using (public.is_admin());
+
+-- Users only see active things they’re entitled to
+create policy "users see their active products"
+on public.products for select
+using (
+  is_active and exists (
+    select 1 from public.user_access ua
+    where ua.product_id = products.id
+      and ua.user_id = auth.uid()
+      and (ua.expires_at is null or ua.expires_at > now())
+  )
+);
+
+create policy "users see their active credentials"
+on public.product_credentials for select
+using (
+  is_active and exists (
+    select 1 from public.user_access ua
+    where ua.product_id = product_credentials.product_id
+      and ua.user_id = auth.uid()
+      and (ua.expires_at is null or ua.expires_at > now())
+  )
+);
+
+create policy "users see their user_access"
+on public.user_access for select
+using (user_id = auth.uid());
+
+create policy "users see their otp logs"
+on public.otp_logs for select
+using (user_id = auth.uid());
+
+-- Account ranking RPC
+create or replace function public.get_ranked_accounts(p_product_id uuid)
+returns table (
+  account_id uuid,
+  imap_host text,
+  imap_port int,
+  imap_user text,
+  imap_password_enc text,
+  otp_regex text,
+  fetch_from_filter text,
+  sender_override text,
+  otp_regex_override text,
+  weight int,
+  priority int,
+  last_used_at timestamptz
+) language sql stable as $$
+  select
+    a.id as account_id,
+    a.imap_host, a.imap_port, a.imap_user, a.imap_password_enc,
+    a.otp_regex, a.fetch_from_filter,
+    pa.sender_override, pa.otp_regex_override,
+    pa.weight, a.priority, a.last_used_at
+  from public.product_accounts pa
+  join public.accounts a on a.id = pa.account_id
+  where pa.product_id = p_product_id
+    and pa.is_active = true
+    and a.is_active = true
+  order by pa.weight asc, a.priority asc, a.last_used_at nulls first
+$$;
+----------------------------------------------------------------
+
+BACKEND (IMPLEMENT EXACTLY):
+- server/db.js:
+  - Create Supabase admin client with SERVICE_ROLE and anon client with ANON key.
+- server/auth.js:
+  - requireUser: verify Supabase JWT from Authorization: Bearer <token>.
+  - requireAdmin: allow only 'harryroger798@gmail.com' and 'admin@otp.bytevault.co.in'.
+- server/crypto.js:
+  - AES-256-GCM encrypt(text)/decrypt(b64) using CRYPTO_SECRET_KEY (sha256 → 32-byte key; 12-byte IV; auth tag).
+- server/otp.js:
+  - POST /api/get-otp/:slug (auth required, unlimited during access + in-memory rate-limit 10/min per user/product).
+  - Flow:
+    1) Load product by slug; ensure active.
+    2) Verify user has non-expired access (user_access).
+    3) Get eligible accounts via RPC get_ranked_accounts(product.id).
+    4) For each account in order:
+       • sender = sender_override or fetch_from_filter.
+       • regex  = otp_regex_override or account.otp_regex or DEFAULT_OTP_REGEX.
+       • Connect IMAP (imap_host, imap_port, imap_user, decrypt(imap_password_enc)) using TLS.
+       • Search INBOX (last 24h). If sender present, filter by FROM.
+       • Fetch last EMAIL_FETCH_LIMIT messages, newest first; parse (mailparser); scan subject+text+html with regex.
+       • On match: update accounts.last_used_at=now(); log success to otp_logs; return {otp, from, subject, fetched_at}.
+       • On miss/error: log no_mail/regex_miss/error and try next account.
+    5) If none yielded an OTP: return 404 { error: "otp_not_found" } and log.
+- server/admin.js (admin-only):
+  - POST /api/admin/product           # create/update product
+  - POST /api/admin/account           # create/update account (encrypt imap_password if provided)
+  - POST /api/admin/map               # link/unlink product↔account (weight/is_active/overrides)
+  - POST /api/admin/user-access       # grant/update user access (user_id, product_id, expires_at)
+  - POST /api/admin/credential        # create/update product credentials
+- server/index.js:
+  - CORS + JSON.
+  - GET /api/health → { ok: true }
+  - GET /api/my-products (auth): return user’s active products with credentials and expires_at.
+  - Mount otpRoutes and adminRoutes.
+  - Listen on PORT=3000 (default).
+
+FRONTEND (IMPLEMENT EXACTLY):
+- web/vite.config.js: dev proxy "/api" → http://localhost:3000
+- web/src/supabaseClient.js: use VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY
+- web/src/App.jsx:
+  - If no session → <Login/>.
+  - Header: app name + Logout; if admin email → show Admin link (#/admin).
+  - Routes via location.hash: "#/admin" → Admin; default → Dashboard.
+  - Footer: “Contact: admin@otp.bytevault.co.in”.
+- web/src/pages/Login.jsx: email/password sign-in.
+- web/src/pages/Dashboard.jsx:
+  - Fetch /api/my-products (Bearer token).
+  - For each product: show title, expiry, credentials (login email/username/password if set), notes, “Get OTP” button.
+  - On click: POST /api/get-otp/:slug; show latest OTP (code, from, subject, timestamp) with “Copy” button.
+  - Handle errors gracefully: no_access, rate_limited, otp_not_found.
+- web/src/pages/Admin.jsx:
+  - Minimal forms to:
+    1) Create Product (slug, title, description, is_active)
+    2) Create Account (label, imap_host, imap_port, imap_user, imap_password, fetch_from_filter, otp_regex, is_active, priority)
+    3) Link Product↔Account (product_id, account_id, weight, is_active, sender_override, otp_regex_override)
+    4) Add Product Credential (product_id, label, login_email/login_username/login_password, notes, is_active)
+
+BUSINESS RULES (ENFORCE):
+- Unlimited OTP requests during active access (light rate-limit 10/min).
+- After expires_at passes → user cannot fetch OTP and product is hidden.
+- Many-to-many mapping supported (one account ↔ many products; many accounts ↔ one product).
+- Admin can disable at any level: product_credentials, product_accounts, accounts, or user_access expiry.
+- Always return the most recent OTP; no caching across requests.
+
+IMAP PROVIDERS SUPPORT (REQUIREMENTS):
+- Accept custom IMAP host/port/user/password so Gmail, Outlook/Office 365, Zoho, Proton (paid), and NeoSpace/custom domain mailboxes all work.
+- Use TLS (secure) connections.
+
+UI/BRANDING:
+- Clean, light UI; accents #dc2626 and #0891b2.
+- Header title: “otp.bytevault.co.in”.
+- Footer contact: admin@otp.bytevault.co.in.
+
+TEST PLAN (BUILD SIMPLE CHECKS):
+- /api/health → {ok:true}
+- Auth: missing/invalid token → 401; valid user → 200.
+- Access gate: user without access → 403 on /api/get-otp/:slug.
+- Expiry: set expires_at in past → product hidden and OTP blocked.
+- Rotation: link 2+ accounts; ensure last_used_at updates.
+- Regex override: verify parsing with custom pattern.
+- Rate-limit: 11th request in a minute → 429 rate_limited.
+- No mail: return 404 otp_not_found with friendly message.
+
+DEPLOYMENT (DO THIS FOR ME):
+- Use "dev" for development (proxy).
+- For production in this repl:
+  - Build web → serve /web/dist as static from Express OR use Replit Nix to run both; choose static serve from Express unless I say otherwise.
+  - Ensure SERVICE_ROLE never reaches the client.
+  - Expose the final web URL and confirm it’s accessible.
+
+BEGIN BY ASKING ME FOR THE SECRETS ABOVE. BLOCK UNTIL I ENTER THEM.
