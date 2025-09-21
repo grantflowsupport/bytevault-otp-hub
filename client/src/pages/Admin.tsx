@@ -936,12 +936,15 @@ export default function Admin({ user }: AdminProps) {
                       <div key={mapping.id} className="flex items-center justify-between p-3 border border-border rounded-md">
                         <div>
                           <p className="font-medium text-foreground" data-testid={`text-mapping-product-${mapping.id}`}>
-                            {products?.find((p: any) => p.id === mapping.product_id)?.title || 'Unknown Product'}
+                            {mapping.products?.title || 'Unknown Product'}
                           </p>
                           <p className="text-sm text-muted-foreground" data-testid={`text-mapping-account-${mapping.id}`}>
-                            {accounts?.find((a: any) => a.id === mapping.account_id)?.label || 'Unknown Account'}
+                            {mapping.accounts?.label || 'Unknown Account'}
                           </p>
                           <p className="text-xs text-muted-foreground">Weight: {mapping.weight}</p>
+                          {mapping.sender_override && (
+                            <p className="text-xs text-muted-foreground">Sender: {mapping.sender_override}</p>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge variant={mapping.is_active ? "default" : "secondary"}>
@@ -1086,9 +1089,10 @@ export default function Admin({ user }: AdminProps) {
                             {credential.label}
                           </p>
                           <p className="text-sm text-muted-foreground" data-testid={`text-credential-product-${credential.id}`}>
-                            {products?.find((p: any) => p.id === credential.product_id)?.title || 'Unknown Product'}
+                            {credential.products?.title || 'Unknown Product'}
                           </p>
                           <p className="text-xs text-muted-foreground">{credential.login_email}</p>
+                          <p className="text-xs text-muted-foreground">Username: {credential.login_username}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge variant={credential.is_active ? "default" : "secondary"}>

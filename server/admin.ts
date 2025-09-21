@@ -353,6 +353,51 @@ router.get('/accounts', requireAdmin, async (req: AuthenticatedRequest, res) => 
   }
 });
 
+// Get all mappings
+router.get('/mappings', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('product_accounts')
+      .select(`
+        *,
+        products!inner(id, title, slug),
+        accounts!inner(id, label)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Get mappings error:', error);
+    res.status(500).json({ error: 'Failed to fetch mappings' });
+  }
+});
+
+// Get all credentials
+router.get('/credentials', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('product_credentials')
+      .select(`
+        *,
+        products!inner(id, title, slug)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Get credentials error:', error);
+    res.status(500).json({ error: 'Failed to fetch credentials' });
+  }
+});
+
 // Analytics endpoints
 
 // Get overall analytics summary
