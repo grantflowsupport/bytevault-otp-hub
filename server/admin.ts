@@ -402,4 +402,213 @@ router.get('/analytics/logs', requireAdmin, async (req: AuthenticatedRequest, re
   }
 });
 
+// Bulk User Management endpoints
+
+// Bulk grant user access (CSV import)
+router.post('/bulk-access/import', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { users, product_id, expires_at } = req.body;
+    
+    if (!Array.isArray(users) || !product_id) {
+      return res.status(400).json({ error: 'Invalid request data' });
+    }
+
+    const results = {
+      successful: [] as Array<{ user: string; access_id: string }>,
+      failed: [] as Array<{ user: string; error: string }>,
+      total: users.length,
+    };
+
+    // Process each user
+    for (const user of users) {
+      try {
+        const { email, user_id, custom_expires_at } = user;
+        
+        // Use custom expiry if provided, otherwise use default
+        const finalExpiresAt = custom_expires_at || expires_at;
+        
+        const accessData = {
+          user_id: user_id,
+          product_id: product_id,
+          expires_at: finalExpiresAt || null,
+        };
+
+        const validatedData = insertUserAccessSchema.parse(accessData);
+
+        const { data, error } = await supabaseAdmin
+          .from('user_access')
+          .upsert(validatedData, { onConflict: 'user_id,product_id' })
+          .select()
+          .single();
+
+        if (error) {
+          results.failed.push({
+            user: email || user_id,
+            error: error.message,
+          });
+        } else {
+          results.successful.push({
+            user: email || user_id,
+            access_id: data.id,
+          });
+        }
+      } catch (error: any) {
+        results.failed.push({
+          user: user.email || user.user_id || 'Unknown',
+          error: error.message || 'Validation failed',
+        });
+      }
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Bulk import error:', error);
+    res.status(500).json({ error: 'Failed to process bulk import' });
+  }
+});
+
+// Export user access as CSV
+router.get('/bulk-access/export', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const product_id = req.query.product_id as string;
+    
+    let query = supabaseAdmin
+      .from('user_access')
+      .select(`
+        user_id,
+        expires_at,
+        created_at,
+        products!inner (
+          id,
+          title,
+          slug
+        )
+      `);
+
+    if (product_id) {
+      query = query.eq('product_id', product_id);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Convert to CSV format
+    const csvHeader = 'User ID,Product,Product Slug,Expires At,Created At\n';
+    const csvRows = data.map((access: any) => {
+      const expiresAt = access.expires_at ? new Date(access.expires_at).toISOString() : 'Never';
+      const createdAt = new Date(access.created_at).toISOString();
+      
+      return `"${access.user_id}","${access.products.title}","${access.products.slug}","${expiresAt}","${createdAt}"`;
+    }).join('\n');
+
+    const csvContent = csvHeader + csvRows;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="user_access_export.csv"');
+    res.send(csvContent);
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export user access' });
+  }
+});
+
+// Bulk revoke user access
+router.post('/bulk-access/revoke', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { user_ids, product_id } = req.body;
+    
+    if (!Array.isArray(user_ids) || !product_id) {
+      return res.status(400).json({ error: 'Invalid request data' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('user_access')
+      .delete()
+      .in('user_id', user_ids)
+      .eq('product_id', product_id)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({
+      message: 'Bulk revoke completed',
+      revoked_count: data.length,
+      revoked_users: data.map((access: any) => access.user_id),
+    });
+  } catch (error) {
+    console.error('Bulk revoke error:', error);
+    res.status(500).json({ error: 'Failed to revoke user access' });
+  }
+});
+
+// Get user access list for management
+router.get('/user-access', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const product_id = req.query.product_id as string;
+    const limit = parseInt(req.query.limit as string) || 100;
+    
+    let query = supabaseAdmin
+      .from('user_access')
+      .select(`
+        *,
+        products (
+          title,
+          slug
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (product_id) {
+      query = query.eq('product_id', product_id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Get user access error:', error);
+    res.status(500).json({ error: 'Failed to fetch user access' });
+  }
+});
+
+// Batch update user access (extend/modify expiry dates)
+router.post('/bulk-access/update', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { access_ids, expires_at } = req.body;
+    
+    if (!Array.isArray(access_ids)) {
+      return res.status(400).json({ error: 'Invalid request data' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('user_access')
+      .update({ expires_at: expires_at || null })
+      .in('id', access_ids)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({
+      message: 'Bulk update completed',
+      updated_count: data.length,
+      updated_access: data,
+    });
+  } catch (error) {
+    console.error('Bulk update error:', error);
+    res.status(500).json({ error: 'Failed to update user access' });
+  }
+});
+
 export default router;

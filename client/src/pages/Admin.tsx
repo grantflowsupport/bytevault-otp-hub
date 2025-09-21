@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import BulkUserManagement from "@/components/BulkUserManagement";
 
 interface AdminProps {
   user: User;
@@ -366,6 +367,7 @@ export default function Admin({ user }: AdminProps) {
           <TabsTrigger value="mappings">Mappings</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="users">User Access</TabsTrigger>
+          <TabsTrigger value="bulk">Bulk Management</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -908,6 +910,10 @@ export default function Admin({ user }: AdminProps) {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="bulk" className="space-y-6">
+          <BulkUserManagement />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
