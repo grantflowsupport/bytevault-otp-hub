@@ -209,7 +209,13 @@ router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) 
 // Grant/Update User Access
 router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    const validatedData = insertUserAccessSchema.parse(req.body);
+    // Convert expires_at string to Date object if provided
+    const requestBody = { ...req.body };
+    if (requestBody.expires_at && typeof requestBody.expires_at === 'string') {
+      requestBody.expires_at = new Date(requestBody.expires_at);
+    }
+    
+    const validatedData = insertUserAccessSchema.parse(requestBody);
     const auditContext = AuditService.getContext(req);
     
     // Fetch existing data for audit logging
