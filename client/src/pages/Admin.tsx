@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
@@ -67,6 +67,26 @@ export default function Admin({ user }: AdminProps) {
     product_id: '',
     expires_at: '',
   });
+
+  // Prevent Alt+Tab from interfering with tab navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Prevent Alt+Tab from being captured by the tabs component
+      if (event.altKey && event.key === 'Tab') {
+        // Stop the event from propagating to prevent tabs from handling it
+        event.stopPropagation();
+        // Allow the browser to handle Alt+Tab naturally
+        return;
+      }
+    };
+
+    // Add event listener to the document with capture phase to intercept early
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, []);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
