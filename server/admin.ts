@@ -212,9 +212,27 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
     // Convert expires_at string to Date object if provided
     const requestBody = { ...req.body };
     if (requestBody.expires_at && typeof requestBody.expires_at === 'string') {
-      requestBody.expires_at = new Date(requestBody.expires_at);
+      console.log('Original expires_at:', requestBody.expires_at);
+      
+      // Handle DD-MM-YYYY HH:MM format
+      const dateStr = requestBody.expires_at;
+      const [datePart, timePart] = dateStr.split(' ');
+      
+      if (datePart && timePart) {
+        const [day, month, year] = datePart.split('-');
+        const [hour, minute] = timePart.split(':');
+        
+        // Create ISO format: YYYY-MM-DDTHH:MM:SS
+        const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
+        requestBody.expires_at = new Date(isoString);
+        console.log('Converted to Date:', requestBody.expires_at);
+      } else {
+        // Fallback to direct parsing
+        requestBody.expires_at = new Date(requestBody.expires_at);
+      }
     }
     
+    console.log('Request body before validation:', requestBody);
     const validatedData = insertUserAccessSchema.parse(requestBody);
     const auditContext = AuditService.getContext(req);
     
