@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import OTPModal from "./OTPModal";
+import OTPModal from "./OTPModal.tsx";
 
 interface ProductCardProps {
   product: any;
