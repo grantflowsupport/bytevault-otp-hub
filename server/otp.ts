@@ -104,6 +104,7 @@ async function getAdvancedFilterConfig(account: any): Promise<FilterConfig> {
 }
 
 router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res) => {
+  console.log('🚀 OTP ENDPOINT CALLED FOR SLUG:', req.params.slug);
   try {
     const { slug } = req.params;
     const userId = req.user!.id;
