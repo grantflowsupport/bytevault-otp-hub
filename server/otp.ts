@@ -284,8 +284,8 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             continue;
           }
 
-          // Fetch the latest messages (up to EMAIL_FETCH_LIMIT)
-          const messagesToFetch = Array.isArray(messages) ? messages.slice(-EMAIL_FETCH_LIMIT) : [];
+          // Fetch all messages (process from newest to oldest)
+          const messagesToFetch = Array.isArray(messages) ? messages : [];
           
           console.log('Messages to fetch:', {
             totalFound: messages.length,
