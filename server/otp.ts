@@ -293,9 +293,14 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             fetchLimit: EMAIL_FETCH_LIMIT
           });
           
+          console.log('Starting email processing loop for', messagesToFetch.length, 'emails');
+          
           for (const uid of messagesToFetch.reverse()) {
+            console.log('🔄 Downloading email UID:', uid);
             const { content } = await client.download(uid);
+            console.log('📧 Downloaded email UID:', uid, 'size:', content.length);
             const parsed = await simpleParser(content);
+            console.log('✅ Parsed email UID:', uid);
 
             console.log('Processing email:', {
               uid,
