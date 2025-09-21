@@ -16,6 +16,7 @@ import { queryClient } from "@/lib/queryClient";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import BulkUserManagement from "@/components/BulkUserManagement";
 import NotificationSettings from "@/components/NotificationSettings";
+import AuditLogs from "@/components/AuditLogs";
 
 interface AdminProps {
   user: User;
@@ -370,6 +371,7 @@ export default function Admin({ user }: AdminProps) {
           <TabsTrigger value="users">User Access</TabsTrigger>
           <TabsTrigger value="bulk">Bulk Management</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -920,6 +922,10 @@ export default function Admin({ user }: AdminProps) {
 
         <TabsContent value="notifications" className="space-y-6">
           <NotificationSettings />
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-6">
+          <AuditLogs />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

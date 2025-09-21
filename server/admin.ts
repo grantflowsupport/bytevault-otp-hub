@@ -9,6 +9,7 @@ import {
   insertProductCredentialSchema,
   insertUserAccessSchema 
 } from '../shared/schema.js';
+import { AuditService } from './audit.js';
 
 const router = Router();
 
@@ -16,6 +17,19 @@ const router = Router();
 router.post('/product', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const validatedData = insertProductSchema.parse(req.body);
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (validatedData.slug) {
+      const existing = await AuditService.fetchCurrentState('products', validatedData.slug);
+      if (existing) {
+        oldValues = existing;
+        action = 'update';
+      }
+    }
     
     const { data, error } = await supabaseAdmin
       .from('products')
@@ -26,6 +40,15 @@ router.post('/product', requireAdmin, async (req: AuthenticatedRequest, res) => 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Log the action
+    await AuditService.logAction(auditContext, {
+      entity_type: 'products',
+      action,
+      entity_id: data.id,
+      old_values: oldValues,
+      new_values: data,
+    });
 
     res.json(data);
   } catch (error) {
@@ -38,6 +61,18 @@ router.post('/product', requireAdmin, async (req: AuthenticatedRequest, res) => 
 router.post('/account', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const data = req.body;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (data.id) {
+      oldValues = await AuditService.fetchCurrentState('accounts', data.id);
+      if (oldValues) {
+        action = 'update';
+      }
+    }
     
     // Encrypt IMAP password if provided
     if (data.imap_password) {
@@ -57,6 +92,18 @@ router.post('/account', requireAdmin, async (req: AuthenticatedRequest, res) => 
       return res.status(400).json({ error: error.message });
     }
 
+    // Log the action (without sensitive password data)
+    const sanitizedResult = { ...result };
+    const sanitizedOldValues = oldValues ? { ...oldValues, imap_password_enc: '[ENCRYPTED]' } : null;
+    
+    await AuditService.logAction(auditContext, {
+      entity_type: 'accounts',
+      action,
+      entity_id: result.id,
+      old_values: sanitizedOldValues,
+      new_values: sanitizedResult,
+    });
+
     res.json(result);
   } catch (error) {
     console.error('Create account error:', error);
@@ -68,6 +115,25 @@ router.post('/account', requireAdmin, async (req: AuthenticatedRequest, res) => 
 router.post('/map', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const validatedData = insertProductAccountSchema.parse(req.body);
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (validatedData.product_id && validatedData.account_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('product_accounts')
+        .select('*')
+        .eq('product_id', validatedData.product_id)
+        .eq('account_id', validatedData.account_id)
+        .single();
+      
+      if (existing) {
+        oldValues = existing;
+        action = 'update';
+      }
+    }
     
     const { data, error } = await supabaseAdmin
       .from('product_accounts')
@@ -78,6 +144,15 @@ router.post('/map', requireAdmin, async (req: AuthenticatedRequest, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Log the action
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_accounts',
+      action,
+      entity_id: data.id,
+      old_values: oldValues,
+      new_values: data,
+    });
 
     res.json(data);
   } catch (error) {
@@ -90,6 +165,18 @@ router.post('/map', requireAdmin, async (req: AuthenticatedRequest, res) => {
 router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const validatedData = insertProductCredentialSchema.parse(req.body);
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (validatedData.id) {
+      oldValues = await AuditService.fetchCurrentState('product_credentials', validatedData.id);
+      if (oldValues) {
+        action = 'update';
+      }
+    }
     
     const { data, error } = await supabaseAdmin
       .from('product_credentials')
@@ -100,6 +187,15 @@ router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Log the action
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_credentials',
+      action,
+      entity_id: data.id,
+      old_values: oldValues,
+      new_values: data,
+    });
 
     res.json(data);
   } catch (error) {
@@ -112,6 +208,25 @@ router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) 
 router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const validatedData = insertUserAccessSchema.parse(req.body);
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (validatedData.user_id && validatedData.product_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('user_access')
+        .select('*')
+        .eq('user_id', validatedData.user_id)
+        .eq('product_id', validatedData.product_id)
+        .single();
+      
+      if (existing) {
+        oldValues = existing;
+        action = 'update';
+      }
+    }
     
     const { data, error } = await supabaseAdmin
       .from('user_access')
@@ -122,6 +237,15 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Log the action
+    await AuditService.logAction(auditContext, {
+      entity_type: 'user_access',
+      action,
+      entity_id: data.id,
+      old_values: oldValues,
+      new_values: data,
+    });
 
     res.json(data);
   } catch (error) {

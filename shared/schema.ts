@@ -77,6 +77,22 @@ export const otpLogs = pgTable("otp_logs", {
   created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });
 
+// Audit logs for admin actions
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  admin_user_id: uuid("admin_user_id").notNull(), // Admin who performed the action
+  action: text("action").notNull(), // create | update | delete | bulk_create | bulk_update | bulk_delete
+  entity_type: text("entity_type").notNull(), // products | accounts | product_accounts | product_credentials | user_access | notification_settings
+  entity_id: uuid("entity_id"), // ID of the affected entity (null for bulk operations)
+  entity_ids: text("entity_ids"), // JSON array of IDs for bulk operations
+  old_values: text("old_values"), // JSON of previous values (for updates/deletes)
+  new_values: text("new_values"), // JSON of new values (for creates/updates)
+  metadata: text("metadata"), // Additional context (e.g., bulk operation details)
+  ip_address: text("ip_address"), // Admin's IP address
+  user_agent: text("user_agent"), // Admin's user agent
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
+
 // Insert schemas
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -108,6 +124,11 @@ export const insertOtpLogSchema = createInsertSchema(otpLogs).omit({
   created_at: true,
 });
 
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  created_at: true,
+});
+
 // Types
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -126,3 +147,6 @@ export type InsertUserAccess = z.infer<typeof insertUserAccessSchema>;
 
 export type OtpLog = typeof otpLogs.$inferSelect;
 export type InsertOtpLog = z.infer<typeof insertOtpLogSchema>;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
