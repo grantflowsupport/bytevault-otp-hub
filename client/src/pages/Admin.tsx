@@ -24,11 +24,14 @@ interface AdminProps {
 
 export default function Admin({ user }: AdminProps) {
   const { toast } = useToast();
-  const [productForm, setProductForm] = useState({
-    slug: '',
-    title: '',
-    description: '',
-    is_active: true,
+  const [productForm, setProductForm] = useState(() => {
+    const stored = localStorage.getItem('productForm');
+    return stored ? JSON.parse(stored) : {
+      slug: '',
+      title: '',
+      description: '',
+      is_active: true,
+    };
   });
 
   const [accountForm, setAccountForm] = useState(() => {
@@ -46,29 +49,38 @@ export default function Admin({ user }: AdminProps) {
     };
   });
 
-  const [mappingForm, setMappingForm] = useState({
-    product_id: '',
-    account_id: '',
-    is_active: true,
-    sender_override: '',
-    otp_regex_override: '',
-    weight: 100,
+  const [mappingForm, setMappingForm] = useState(() => {
+    const stored = localStorage.getItem('mappingForm');
+    return stored ? JSON.parse(stored) : {
+      product_id: '',
+      account_id: '',
+      is_active: true,
+      sender_override: '',
+      otp_regex_override: '',
+      weight: 100,
+    };
   });
 
-  const [credentialForm, setCredentialForm] = useState({
-    product_id: '',
-    label: 'Default',
-    login_email: '',
-    login_username: '',
-    login_password: '',
-    notes: '',
-    is_active: true,
+  const [credentialForm, setCredentialForm] = useState(() => {
+    const stored = localStorage.getItem('credentialForm');
+    return stored ? JSON.parse(stored) : {
+      product_id: '',
+      label: 'Default',
+      login_email: '',
+      login_username: '',
+      login_password: '',
+      notes: '',
+      is_active: true,
+    };
   });
 
-  const [userAccessForm, setUserAccessForm] = useState({
-    user_id: '',
-    product_id: '',
-    expires_at: '',
+  const [userAccessForm, setUserAccessForm] = useState(() => {
+    const stored = localStorage.getItem('userAccessForm');
+    return stored ? JSON.parse(stored) : {
+      user_id: '',
+      product_id: '',
+      expires_at: '',
+    };
   });
 
   // Tab state management - persist across remounts
@@ -99,8 +111,24 @@ export default function Admin({ user }: AdminProps) {
 
   // Persist form data across remounts
   useEffect(() => {
+    localStorage.setItem('productForm', JSON.stringify(productForm));
+  }, [productForm]);
+
+  useEffect(() => {
     localStorage.setItem('accountForm', JSON.stringify(accountForm));
   }, [accountForm]);
+
+  useEffect(() => {
+    localStorage.setItem('mappingForm', JSON.stringify(mappingForm));
+  }, [mappingForm]);
+
+  useEffect(() => {
+    localStorage.setItem('credentialForm', JSON.stringify(credentialForm));
+  }, [credentialForm]);
+
+  useEffect(() => {
+    localStorage.setItem('userAccessForm', JSON.stringify(userAccessForm));
+  }, [userAccessForm]);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -366,7 +394,17 @@ export default function Admin({ user }: AdminProps) {
 
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createProductMutation.mutate(productForm);
+    createProductMutation.mutate(productForm, {
+      onSuccess: () => {
+        localStorage.removeItem('productForm');
+        setProductForm({
+          slug: '',
+          title: '',
+          description: '',
+          is_active: true,
+        });
+      },
+    });
   };
 
   const handleAccountSubmit = (e: React.FormEvent) => {
@@ -392,17 +430,51 @@ export default function Admin({ user }: AdminProps) {
 
   const handleMappingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMappingMutation.mutate(mappingForm);
+    createMappingMutation.mutate(mappingForm, {
+      onSuccess: () => {
+        localStorage.removeItem('mappingForm');
+        setMappingForm({
+          product_id: '',
+          account_id: '',
+          is_active: true,
+          sender_override: '',
+          otp_regex_override: '',
+          weight: 100,
+        });
+      },
+    });
   };
 
   const handleCredentialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createCredentialMutation.mutate(credentialForm);
+    createCredentialMutation.mutate(credentialForm, {
+      onSuccess: () => {
+        localStorage.removeItem('credentialForm');
+        setCredentialForm({
+          product_id: '',
+          label: 'Default',
+          login_email: '',
+          login_username: '',
+          login_password: '',
+          notes: '',
+          is_active: true,
+        });
+      },
+    });
   };
 
   const handleUserAccessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createUserAccessMutation.mutate(userAccessForm);
+    createUserAccessMutation.mutate(userAccessForm, {
+      onSuccess: () => {
+        localStorage.removeItem('userAccessForm');
+        setUserAccessForm({
+          user_id: '',
+          product_id: '',
+          expires_at: '',
+        });
+      },
+    });
   };
 
   return (
