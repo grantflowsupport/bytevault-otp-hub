@@ -44,8 +44,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch credentials for all user's products
-      const productIds = data.map(item => item.products.id);
-      let credentials = [];
+      const productIds = data.map((item: any) => item.products.id);
+      let credentials: any[] = [];
       
       if (productIds.length > 0) {
         const { data: credData } = await supabaseAdmin
@@ -57,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Transform the data to a more usable format
-      const products = data.map(item => ({
+      const products = data.map((item: any) => ({
         ...item.products,
         expires_at: item.expires_at,
         credentials: credentials.filter(cred => cred.product_id === item.products.id),

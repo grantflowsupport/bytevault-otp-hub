@@ -40,6 +40,68 @@ async function logOTP(userId: string, productId: string, accountId: string | nul
   });
 }
 
+interface FilterConfig {
+  senderWhitelist: string[];
+  senderBlacklist: string[];
+  otpPatterns: RegExp[];
+  subjectFilters: string[];
+  timeWindow: number; // hours
+}
+
+async function getAdvancedFilterConfig(account: any): Promise<FilterConfig> {
+  const DEFAULT_OTP_REGEX = process.env.DEFAULT_OTP_REGEX || '\\b\\d{6}\\b';
+  
+  // Parse sender filters (support comma-separated values)
+  const senderOverride = account.sender_override || '';
+  const fetchFromFilter = account.fetch_from_filter || '';
+  
+  // Combine and parse sender whitelist
+  const senderWhitelist = [senderOverride, fetchFromFilter]
+    .filter(Boolean)
+    .flatMap((filter: string) => filter.split(',').map((s: string) => s.trim()))
+    .filter(Boolean);
+  
+  // For now, blacklist is empty (can be enhanced later with new schema fields)
+  const senderBlacklist: string[] = [];
+  
+  // Parse OTP regex patterns with error handling
+  const regexPattern = account.otp_regex_override || account.otp_regex || DEFAULT_OTP_REGEX;
+  const otpPatterns: RegExp[] = [];
+  
+  // Safely create main pattern
+  try {
+    otpPatterns.push(new RegExp(regexPattern, 'g'));
+  } catch (error) {
+    // Fallback to default if pattern is invalid
+    otpPatterns.push(new RegExp(DEFAULT_OTP_REGEX, 'g'));
+  }
+  
+  // Enhanced patterns for common OTP formats (with context to reduce false positives)
+  const enhancedPatterns = [
+    /(?:code|otp|pin|verification|authenticate)[\s:]*(\d{4,8})/gi, // Context-aware numeric
+    /(?:code|otp|pin)[\s:]*([A-Z0-9]{4,8})/gi, // Context-aware alphanumeric
+  ];
+  
+  otpPatterns.push(...enhancedPatterns);
+  
+  // Subject filters (common OTP-related keywords)
+  const subjectFilters = [
+    'verification', 'code', 'otp', 'authenticate', 'login', 'signin',
+    'security', 'access', 'confirm', 'activate', 'reset'
+  ];
+  
+  // Default time window of 24 hours
+  const timeWindow = 24;
+  
+  return {
+    senderWhitelist,
+    senderBlacklist,
+    otpPatterns,
+    subjectFilters,
+    timeWindow
+  };
+}
+
 router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res) => {
   try {
     const { slug } = req.params;
@@ -98,9 +160,9 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
         // Decrypt IMAP password
         const imapPassword = decrypt(account.imap_password_enc);
         
-        // Determine sender filter and regex
-        const senderFilter = account.sender_override || account.fetch_from_filter;
-        const otpRegex = new RegExp(account.otp_regex_override || account.otp_regex || DEFAULT_OTP_REGEX);
+        // Advanced filtering configuration
+        const filterConfig = await getAdvancedFilterConfig(account);
+        const { senderWhitelist, senderBlacklist, otpPatterns, subjectFilters, timeWindow } = filterConfig;
 
         // Connect to IMAP
         const client = new ImapFlow({
@@ -119,16 +181,33 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
         try {
           lock = await client.getMailboxLock('INBOX');
 
-          // Search for emails from the last 24 hours
+          // Search for emails within the configured time window
           const since = new Date();
-          since.setDate(since.getDate() - 1);
+          since.setTime(since.getTime() - (timeWindow * 60 * 60 * 1000));
 
-          let searchCriteria: any = { since };
-          if (senderFilter) {
-            searchCriteria.from = senderFilter;
+          // Search for emails within time window
+          let messages: any[] = [];
+          
+          if (senderWhitelist.length > 0) {
+            // Search each sender separately and combine results
+            for (const sender of senderWhitelist) {
+              try {
+                const senderMessages = await client.search({ since, from: sender }, { uid: true });
+                if (senderMessages && Array.isArray(senderMessages)) {
+                  messages.push(...senderMessages);
+                }
+              } catch (error) {
+                // Continue with other senders if one fails
+                continue;
+              }
+            }
+            // Remove duplicates and sort
+            messages = [...new Set(messages)].sort((a, b) => a - b);
+          } else {
+            // Search all emails if no whitelist
+            const allMessages = await client.search({ since }, { uid: true });
+            messages = Array.isArray(allMessages) ? allMessages : [];
           }
-
-          const messages = await client.search(searchCriteria, { uid: true });
           
           if (!messages || messages.length === 0) {
             lock.release();
@@ -143,27 +222,82 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             const { content } = await client.download(uid);
             const parsed = await simpleParser(content);
 
+            // Advanced sender filtering
+            const fromAddress = parsed.from?.text || '';
+            
+            // Check sender blacklist
+            if (senderBlacklist.some(blocked => fromAddress.includes(blocked))) {
+              continue;
+            }
+            
+            // If whitelist is configured, ensure sender matches
+            if (senderWhitelist.length > 0 && !senderWhitelist.some(allowed => fromAddress.includes(allowed))) {
+              continue;
+            }
+
+            // Enhanced subject filtering for OTP relevance
+            const subject = (parsed.subject || '').toLowerCase();
+            const isOtpRelated = subjectFilters.some(filter => subject.includes(filter));
+            
             // Search for OTP in subject and text content
             const searchText = `${parsed.subject || ''} ${parsed.text || ''} ${parsed.html || ''}`;
-            const otpMatch = searchText.match(otpRegex);
+            
+            let foundOtp: string | null = null;
+            let matchPattern: string = '';
+            
+            // Try each OTP pattern until we find a match (with timeout protection)
+            for (const pattern of otpPatterns) {
+              pattern.lastIndex = 0; // Reset regex
+              
+              try {
+                // Limit search text size to prevent ReDoS
+                const limitedText = searchText.substring(0, 10000); // Max 10KB
+                const startTime = Date.now();
+                
+                const matches = Array.from(limitedText.matchAll(pattern));
+                
+                // Timeout check (prevent long-running regex)
+                if (Date.now() - startTime > 500) { // 500ms max
+                  continue;
+                }
+                
+                if (matches.length > 0) {
+                  // Prefer matches from OTP-related emails
+                  const bestMatch = isOtpRelated ? matches[0] : matches[matches.length - 1];
+                  foundOtp = bestMatch[1] || bestMatch[0]; // Use capture group if available
+                  matchPattern = pattern.source;
+                  break;
+                }
+              } catch (error) {
+                // Skip pattern if it fails
+                continue;
+              }
+            }
 
-            if (otpMatch) {
-              // Found OTP! Update last_used_at and log success
-              await supabaseAdmin
-                .from('accounts')
-                .update({ last_used_at: new Date().toISOString() })
-                .eq('id', account.account_id);
+            if (foundOtp) {
+              // Validate OTP format (basic sanity check)
+              if (foundOtp.length >= 4 && foundOtp.length <= 12) {
+                // Found OTP! Update last_used_at and log success
+                await supabaseAdmin
+                  .from('accounts')
+                  .update({ last_used_at: new Date().toISOString() })
+                  .eq('id', account.account_id);
 
-              await logOTP(userId, product.id, account.account_id, 'success', `OTP found: ${otpMatch[0]}`);
-              lock.release();
-              await client.logout();
+                await logOTP(userId, product.id, account.account_id, 'success', 
+                  `OTP extracted (pattern: ${matchPattern}, relevance: ${isOtpRelated ? 'high' : 'low'}, length: ${foundOtp.length})`);
+                
+                lock.release();
+                await client.logout();
 
-              return res.json({
-                otp: otpMatch[0],
-                from: parsed.from?.text || 'Unknown',
-                subject: parsed.subject || '',
-                fetched_at: new Date().toISOString(),
-              });
+                return res.json({
+                  otp: foundOtp,
+                  from: parsed.from?.text || 'Unknown',
+                  subject: parsed.subject || '',
+                  fetched_at: new Date().toISOString(),
+                  relevance: isOtpRelated ? 'high' : 'low',
+                  pattern: matchPattern,
+                });
+              }
             }
           }
 
