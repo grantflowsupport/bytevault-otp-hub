@@ -68,21 +68,36 @@ export default function Admin({ user }: AdminProps) {
     expires_at: '',
   });
 
-  // Tab state management
-  const [activeTab, setActiveTab] = useState("products");
+  // Tab state management - persist across remounts
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.slice(1);
+    const stored = localStorage.getItem('adminTab');
+    return hash || stored || 'products';
+  });
 
-  // Add focus management to prevent focus restoration from changing tabs
+  // Sync tab changes to URL hash and localStorage
   useEffect(() => {
-    const handleFocus = () => {
-      // When the page gains focus (after Alt+Tab), ensure focus goes to a safe element
-      const safeElement = document.querySelector('[data-focus-trap]') as HTMLElement;
-      if (safeElement) {
-        safeElement.focus();
-      }
-    };
+    if (activeTab) {
+      history.replaceState(null, '', `#${activeTab}`);
+      localStorage.setItem('adminTab', activeTab);
+    }
+  }, [activeTab]);
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+  // Listen for external hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const newTab = window.location.hash.slice(1) || 'products';
+      setActiveTab(newTab);
+    };
+    
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Debug: Log component mounts/unmounts to verify remount theory
+  useEffect(() => {
+    console.log('Admin component mounted, activeTab:', activeTab);
+    return () => console.log('Admin component unmounted');
   }, []);
 
   // Fetch products
@@ -374,14 +389,6 @@ export default function Admin({ user }: AdminProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Hidden focus trap to prevent tab switching on browser refocus */}
-      <div 
-        data-focus-trap
-        tabIndex={0}
-        className="sr-only"
-        aria-label="Focus trap"
-      />
-      
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-foreground">Admin Panel</h2>
         <p className="text-muted-foreground mt-1">Manage products, accounts, and user access</p>
