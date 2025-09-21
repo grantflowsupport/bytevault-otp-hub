@@ -71,20 +71,24 @@ export default function Admin({ user }: AdminProps) {
   // Prevent Alt+Tab from interfering with tab navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Prevent Alt+Tab from being captured by the tabs component
+      // Check for Alt+Tab combination
       if (event.altKey && event.key === 'Tab') {
-        // Stop the event from propagating to prevent tabs from handling it
+        console.log('Alt+Tab detected, preventing tab component from handling it');
+        // Prevent the event from reaching the tabs component
+        event.preventDefault();
         event.stopPropagation();
-        // Allow the browser to handle Alt+Tab naturally
-        return;
+        event.stopImmediatePropagation();
+        return false;
       }
     };
 
-    // Add event listener to the document with capture phase to intercept early
+    // Add multiple listeners to ensure we catch the event
     document.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, []);
 
@@ -382,7 +386,19 @@ export default function Admin({ user }: AdminProps) {
         <p className="text-muted-foreground mt-1">Manage products, accounts, and user access</p>
       </div>
 
-      <Tabs defaultValue="products" className="space-y-6">
+      <Tabs 
+        defaultValue="products" 
+        className="space-y-6"
+        onKeyDown={(event) => {
+          // Prevent Alt+Tab from triggering tab navigation
+          if (event.altKey && event.key === 'Tab') {
+            console.log('Alt+Tab detected on Tabs component, preventing default');
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+        }}
+      >
         <TabsList>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
