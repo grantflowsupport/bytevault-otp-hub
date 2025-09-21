@@ -202,6 +202,24 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Fetch user access
+  const { data: userAccess, isLoading: userAccessLoading, isError: userAccessError, refetch: refetchUserAccess } = useQuery({
+    queryKey: ['/api/admin/user-access'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/user-access', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch user access');
+      return response.json();
+    },
+  });
+
   // Create product mutation
   const createProductMutation = useMutation({
     mutationFn: async (data: typeof productForm) => {
@@ -428,6 +446,44 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Revoke user access mutation
+  const revokeUserAccessMutation = useMutation({
+    mutationFn: async ({ user_id, product_id }: { user_id: string; product_id: string }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/bulk-access/revoke', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ user_ids: [user_id], product_id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to revoke access');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/user-access'] });
+      toast({
+        title: "Success",
+        description: "User access revoked successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createProductMutation.mutate(productForm, {
@@ -518,6 +574,18 @@ export default function Admin({ user }: AdminProps) {
           user_id: '',
           product_id: '',
           expires_at: '',
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/user-access'] });
+        toast({
+          title: "Success",
+          description: "User access granted successfully",
+        });
+      },
+      onError: (error: Error) => {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message,
         });
       },
     });
@@ -1182,7 +1250,62 @@ export default function Admin({ user }: AdminProps) {
                 <CardTitle>Existing User Access</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">User access list will be displayed here when API is available.</p>
+                {userAccessLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse p-3 border border-border rounded-md">
+                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2 mb-1"></div>
+                        <div className="h-3 bg-muted rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : userAccessError ? (
+                  <div className="text-center py-8">
+                    <p className="text-destructive mb-4">Failed to load user access records</p>
+                    <Button 
+                      onClick={() => refetchUserAccess()} 
+                      variant="outline"
+                      data-testid="button-retry-user-access"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : userAccess && userAccess.length > 0 ? (
+                  <div className="space-y-3">
+                    {userAccess.map((access: any) => (
+                      <div key={access.id} className="flex items-center justify-between p-3 border border-border rounded-md">
+                        <div>
+                          <p className="font-medium text-foreground" data-testid={`text-access-user-${access.id}`}>
+                            User: {access.user_id}
+                          </p>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-access-product-${access.id}`}>
+                            Product: {access.products?.title || 'Unknown Product'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {access.expires_at ? `Expires: ${new Date(access.expires_at).toLocaleDateString()}` : 'No expiration'}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={access.expires_at && new Date(access.expires_at) < new Date() ? "destructive" : "default"}>
+                            {access.expires_at && new Date(access.expires_at) < new Date() ? "Expired" : "Active"}
+                          </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => revokeUserAccessMutation.mutate({ user_id: access.user_id, product_id: access.product_id })}
+                            disabled={revokeUserAccessMutation.isPending}
+                            data-testid={`button-revoke-access-${access.id}`}
+                          >
+                            {revokeUserAccessMutation.isPending ? 'Revoking...' : 'Revoke'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No user access records yet.</p>
+                )}
               </CardContent>
             </Card>
           </div>

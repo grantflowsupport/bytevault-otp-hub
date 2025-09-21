@@ -791,7 +791,7 @@ router.get('/user-access', requireAdmin, async (req: AuthenticatedRequest, res) 
           slug
         )
       `)
-      .order('created_at', { ascending: false })
+      .order('granted_at', { ascending: false })
       .limit(limit);
 
     if (product_id) {
