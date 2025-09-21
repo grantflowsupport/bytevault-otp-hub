@@ -170,7 +170,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
       .order('weight', { ascending: false });
 
     // Transform the data to match expected format
-    const accounts = accountMappings?.map(mapping => ({
+    const accounts = accountMappings?.map((mapping: any) => ({
       ...mapping.accounts,
       weight: mapping.weight,
       sender_override: mapping.sender_override,
@@ -242,7 +242,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
               }
             }
             // Remove duplicates and sort
-            messages = [...new Set(messages)].sort((a, b) => a - b);
+            messages = Array.from(new Set(messages)).sort((a, b) => a - b);
           } else {
             // Search all emails if no whitelist
             const allMessages = await client.search({ since }, { uid: true });
@@ -294,8 +294,8 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             
             console.log('Email content for OTP search:', {
               subject: parsed.subject,
-              textPreview: parsed.text?.substring(0, 200),
-              htmlPreview: parsed.html?.substring(0, 200),
+              textPreview: typeof parsed.text === 'string' ? parsed.text.substring(0, 200) : 'No text',
+              htmlPreview: typeof parsed.html === 'string' ? parsed.html.substring(0, 200) : 'No HTML',
               searchTextLength: searchText.length,
               otpPatternsCount: otpPatterns.length
             });
