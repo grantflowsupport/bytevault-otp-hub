@@ -71,6 +71,24 @@ export default function Admin({ user }: AdminProps) {
   // Tab state management
   const [activeTab, setActiveTab] = useState("products");
 
+  // Prevent Tab key when Alt is held (Alt+Tab system shortcut)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // If Alt is held and Tab is pressed, prevent tab navigation
+      if (event.altKey && event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    // Capture the event early to prevent tabs from handling it
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, []);
+
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ['/api/admin/products'],
