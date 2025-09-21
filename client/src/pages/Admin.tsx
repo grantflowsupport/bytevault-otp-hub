@@ -94,11 +94,6 @@ export default function Admin({ user }: AdminProps) {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Debug: Log component mounts/unmounts to verify remount theory
-  useEffect(() => {
-    console.log('Admin component mounted, activeTab:', activeTab);
-    return () => console.log('Admin component unmounted');
-  }, []);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
