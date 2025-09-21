@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import BulkUserManagement from "@/components/BulkUserManagement";
+import NotificationSettings from "@/components/NotificationSettings";
 
 interface AdminProps {
   user: User;
@@ -368,6 +369,7 @@ export default function Admin({ user }: AdminProps) {
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           <TabsTrigger value="users">User Access</TabsTrigger>
           <TabsTrigger value="bulk">Bulk Management</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -914,6 +916,10 @@ export default function Admin({ user }: AdminProps) {
 
         <TabsContent value="bulk" className="space-y-6">
           <BulkUserManagement />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <NotificationSettings />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

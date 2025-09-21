@@ -5,6 +5,7 @@ import { requireUser, AuthenticatedRequest } from './auth.js';
 import { supabaseAdmin } from './db.js';
 import otpRoutes from './otp.js';
 import adminRoutes from './admin.js';
+import notificationRoutes, { startNotificationScheduler } from './notifications.js';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Enable CORS
@@ -75,6 +76,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount admin routes
   app.use('/api/admin', adminRoutes);
+
+  // Mount notification routes
+  app.use('/api/notifications', notificationRoutes);
+
+  // Start notification scheduler
+  startNotificationScheduler();
 
   const httpServer = createServer(app);
   return httpServer;
