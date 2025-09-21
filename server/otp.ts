@@ -115,8 +115,9 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
 
         await client.connect();
 
+        let lock;
         try {
-          await client.selectMailbox('INBOX');
+          lock = await client.getMailboxLock('INBOX');
 
           // Search for emails from the last 24 hours
           const since = new Date();
@@ -129,13 +130,14 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
 
           const messages = await client.search(searchCriteria, { uid: true });
           
-          if (messages.length === 0) {
+          if (!messages || messages.length === 0) {
+            lock.release();
             await client.logout();
             continue;
           }
 
           // Fetch the latest messages (up to EMAIL_FETCH_LIMIT)
-          const messagesToFetch = messages.slice(-EMAIL_FETCH_LIMIT);
+          const messagesToFetch = Array.isArray(messages) ? messages.slice(-EMAIL_FETCH_LIMIT) : [];
           
           for (const uid of messagesToFetch.reverse()) {
             const { content } = await client.download(uid);
@@ -153,6 +155,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                 .eq('id', account.account_id);
 
               await logOTP(userId, product.id, account.account_id, 'success', `OTP found: ${otpMatch[0]}`);
+              lock.release();
               await client.logout();
 
               return res.json({
@@ -164,14 +167,16 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             }
           }
 
+          lock.release();
           await client.logout();
-        } catch (imapError) {
+        } catch (imapError: any) {
+          if (lock) lock.release();
           await client.logout();
-          await logOTP(userId, product.id, account.account_id, 'error', `IMAP error: ${imapError.message}`);
+          await logOTP(userId, product.id, account.account_id, 'error', `IMAP error: ${imapError?.message || String(imapError)}`);
           continue;
         }
-      } catch (error) {
-        await logOTP(userId, product.id, account.account_id, 'error', `Connection error: ${error.message}`);
+      } catch (error: any) {
+        await logOTP(userId, product.id, account.account_id, 'error', `Connection error: ${error?.message || String(error)}`);
         continue;
       }
     }
