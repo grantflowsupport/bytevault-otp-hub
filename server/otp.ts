@@ -197,6 +197,13 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
     // Try each account in order
     for (const account of accounts) {
       try {
+        console.log('Processing account:', {
+          accountId: account.id,
+          accountLabel: account.label,
+          imapHost: account.imap_host,
+          imapUser: account.imap_user
+        });
+        
         // Decrypt IMAP password
         const imapPassword = decrypt(account.imap_password_enc);
         
@@ -215,11 +222,15 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           },
         });
 
+        console.log('Connecting to IMAP...');
         await client.connect();
+        console.log('IMAP connection established');
 
         let lock;
         try {
+          console.log('Acquiring mailbox lock...');
           lock = await client.getMailboxLock('INBOX');
+          console.log('Mailbox lock acquired');
 
           // Search for emails within the configured time window
           const since = new Date();
@@ -397,6 +408,12 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           continue;
         }
       } catch (error: any) {
+        console.error('Error processing account:', {
+          accountId: account.id,
+          accountLabel: account.label,
+          error: error?.message || String(error),
+          stack: error?.stack
+        });
         await logOTP(userId, product.id, account.id, 'error', `Connection error: ${error?.message || String(error)}`);
         continue;
       }
