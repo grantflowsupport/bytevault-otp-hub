@@ -295,7 +295,8 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           
           console.log('Starting email processing loop for', messagesToFetch.length, 'emails');
           
-          for (const uid of messagesToFetch.reverse()) {
+          try {
+            for (const uid of messagesToFetch.reverse()) {
             console.log('🔄 Downloading email UID:', uid);
             const { content } = await client.download(uid);
             console.log('📧 Downloaded email UID:', uid, 'size:', content.length);
@@ -403,6 +404,14 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                 });
               }
             }
+          }
+          } catch (loopError) {
+            console.error('💥 EMAIL PROCESSING LOOP ERROR:', {
+              error: loopError.message,
+              stack: loopError.stack,
+              messagesToFetchLength: messagesToFetch.length,
+              messagesToFetch: messagesToFetch.slice(0, 5) // First 5 UIDs
+            });
           }
 
           lock.release();
