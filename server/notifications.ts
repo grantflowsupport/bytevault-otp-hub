@@ -7,20 +7,16 @@ import {
   sendAdminAlert,
   testEmailConfig 
 } from './email.js';
+import { 
+  notificationSettings as notificationSettingsTable, 
+  insertNotificationSettingsSchema,
+  type InsertNotificationSettings
+} from '../shared/schema.js';
 
 const router = Router();
 
-// Notification settings interface
-interface NotificationSettings {
-  access_expiry_warning_days: number;
-  admin_alerts_enabled: boolean;
-  admin_email: string;
-  daily_notifications_enabled: boolean;
-  notification_time: string; // HH:MM format
-}
-
 // Default notification settings
-const defaultSettings: NotificationSettings = {
+const defaultSettings = {
   access_expiry_warning_days: 7,
   admin_alerts_enabled: true,
   admin_email: '',
@@ -28,11 +24,59 @@ const defaultSettings: NotificationSettings = {
   notification_time: '09:00',
 };
 
-// In-memory storage for notification settings (should be moved to database in production)
-let notificationSettings: NotificationSettings = { ...defaultSettings };
+// Database helper functions for notification settings
+const getNotificationSettings = async () => {
+  try {
+    // Fixed singleton ID to prevent race conditions
+    const singletonId = '00000000-0000-0000-0000-000000000001';
+    
+    // First, ensure singleton row exists without overwriting saved values
+    await supabaseAdmin
+      .from('notification_settings')
+      .upsert({ id: singletonId }, { 
+        onConflict: 'id',
+        ignoreDuplicates: true // Don't overwrite existing data
+      });
 
-// Track last notification check
-let lastNotificationCheck = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Then read the current settings
+    const { data, error } = await supabaseAdmin
+      .from('notification_settings')
+      .select('*')
+      .eq('id', singletonId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching notification settings:', error);
+    throw error; // Don't return defaults without id - let caller handle error
+  }
+};
+
+const updateNotificationSettings = async (updates: Partial<InsertNotificationSettings>) => {
+  try {
+    const currentSettings = await getNotificationSettings();
+    
+    const { data, error } = await supabaseAdmin
+      .from('notification_settings')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', currentSettings.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating notification settings:', error);
+    throw error;
+  }
+};
+
+// Track last notification check (initialize to past date to allow runs on startup)
+let lastNotificationCheck = '1970-01-01'; // YYYY-MM-DD (fallback for memory)
 
 // Send access expiry notifications
 export const checkAndSendExpiryNotifications = async (): Promise<{
@@ -49,9 +93,12 @@ export const checkAndSendExpiryNotifications = async (): Promise<{
   };
 
   try {
+    // Fetch notification settings from database
+    const settings = await getNotificationSettings();
+    
     // Calculate warning date
     const warningDate = new Date();
-    warningDate.setDate(warningDate.getDate() + notificationSettings.access_expiry_warning_days);
+    warningDate.setDate(warningDate.getDate() + settings.access_expiry_warning_days);
 
     // Find users with access expiring soon (not already expired)
     const { data: expiringAccess, error } = await supabaseAdmin
@@ -81,11 +128,22 @@ export const checkAndSendExpiryNotifications = async (): Promise<{
       results.processed++;
       
       try {
-        // For simplicity, use user_id as email (in production, you'd look up actual email)
-        // This assumes user_id is an email address or you have a user lookup system
-        const userEmail = access.user_id.includes('@') ? access.user_id : `${access.user_id}@example.com`;
-        const userName = access.user_id;
-        const productName = access.products?.title || 'Unknown Product';
+        // Get user email from Supabase Auth using the UUID
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(access.user_id);
+        
+        if (authError || !authUser.user?.email) {
+          results.failed++;
+          results.details.push({
+            user_id: access.user_id,
+            status: 'failed',
+            error: `No email found for user ${access.user_id}`,
+          });
+          continue;
+        }
+
+        const userEmail = authUser.user.email;
+        const userName = authUser.user.email; // Use email as display name
+        const productName = (access.products as any)?.title || 'Unknown Product';
         const expiresAt = access.expires_at;
 
         const success = await sendAccessExpiringNotification(
@@ -123,7 +181,7 @@ export const checkAndSendExpiryNotifications = async (): Promise<{
     console.log('Expiry notifications processed:', results);
 
     // Send admin summary if enabled
-    if (notificationSettings.admin_alerts_enabled && notificationSettings.admin_email && results.processed > 0) {
+    if (settings.admin_alerts_enabled && settings.admin_email && results.processed > 0) {
       const summary = `
 Expiry Notification Summary:
 - Processed: ${results.processed}
@@ -135,7 +193,7 @@ ${results.details.map(d => `- ${d.user_id}: ${d.status}${d.error ? ` (${d.error}
       `;
 
       await sendAdminAlert(
-        notificationSettings.admin_email,
+        settings.admin_email,
         'Expiry Notifications Processed',
         `Processed ${results.processed} expiry notifications`,
         summary
@@ -147,13 +205,18 @@ ${results.details.map(d => `- ${d.user_id}: ${d.status}${d.error ? ` (${d.error}
     console.error('Failed to process expiry notifications:', error);
     
     // Send admin alert about the failure
-    if (notificationSettings.admin_alerts_enabled && notificationSettings.admin_email) {
-      await sendAdminAlert(
-        notificationSettings.admin_email,
-        'Notification System Error',
-        'Failed to process expiry notifications',
-        error.message
-      );
+    try {
+      const errorSettings = await getNotificationSettings();
+      if (errorSettings.admin_alerts_enabled && errorSettings.admin_email) {
+        await sendAdminAlert(
+          errorSettings.admin_email,
+          'Notification System Error',
+          'Failed to process expiry notifications',
+          error.message
+        );
+      }
+    } catch (alertError) {
+      console.error('Failed to send error alert:', alertError);
     }
 
     throw error;
@@ -203,9 +266,17 @@ export const checkAndSendExpiredNotifications = async (): Promise<{
       results.processed++;
       
       try {
-        const userEmail = access.user_id.includes('@') ? access.user_id : `${access.user_id}@example.com`;
-        const userName = access.user_id;
-        const productName = access.products?.title || 'Unknown Product';
+        // Get user email from Supabase Auth using the UUID
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(access.user_id);
+        
+        if (authError || !authUser.user?.email) {
+          results.failed++;
+          continue;
+        }
+
+        const userEmail = authUser.user.email;
+        const userName = authUser.user.email; // Use email as display name
+        const productName = (access.products as any)?.title || 'Unknown Product';
 
         const success = await sendAccessExpiredNotification(
           userEmail,
@@ -232,15 +303,25 @@ export const checkAndSendExpiredNotifications = async (): Promise<{
 
 // Run daily notification check
 export const runDailyNotificationCheck = async () => {
-  if (!notificationSettings.daily_notifications_enabled) {
+  const settings = await getNotificationSettings();
+  if (!settings.daily_notifications_enabled) {
     return;
   }
 
   const today = new Date().toISOString().split('T')[0];
   
-  // Only run once per day
-  if (lastNotificationCheck === today) {
-    return;
+  // Atomic guard: Try to claim this run by updating last_run_date BEFORE doing work
+  // This prevents duplicate runs across multiple instances
+  const { data: updateResult, error: updateError } = await supabaseAdmin
+    .from('notification_settings')
+    .update({ last_run_date: today })
+    .eq('id', settings.id) // Scope to this specific settings row
+    .neq('last_run_date', today) // Only update if not already run today
+    .select();
+
+  if (updateError || !updateResult || updateResult.length === 0) {
+    console.log('Daily notification already processed today or update failed');
+    return; // Another instance already ran today or update failed
   }
 
   try {
@@ -249,7 +330,7 @@ export const runDailyNotificationCheck = async () => {
     const expiryResults = await checkAndSendExpiryNotifications();
     const expiredResults = await checkAndSendExpiredNotifications();
     
-    lastNotificationCheck = today;
+    lastNotificationCheck = today; // Keep in-memory fallback
     
     console.log('Daily notification check completed:', {
       expiry: expiryResults,
@@ -265,7 +346,8 @@ export const runDailyNotificationCheck = async () => {
 // Get notification settings
 router.get('/settings', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    res.json(notificationSettings);
+    const settings = await getNotificationSettings();
+    res.json(settings);
   } catch (error) {
     console.error('Get notification settings error:', error);
     res.status(500).json({ error: 'Failed to fetch notification settings' });
@@ -275,35 +357,40 @@ router.get('/settings', requireAdmin, async (req: AuthenticatedRequest, res) => 
 // Update notification settings
 router.post('/settings', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    const updates = req.body;
+    // Use Zod validation following project guidelines
+    const validatedUpdates = insertNotificationSettingsSchema.partial().parse(req.body);
     
-    // Validate settings
-    if (typeof updates.access_expiry_warning_days === 'number' && updates.access_expiry_warning_days > 0) {
-      notificationSettings.access_expiry_warning_days = updates.access_expiry_warning_days;
+    // Additional validation rules
+    if (validatedUpdates.access_expiry_warning_days !== undefined) {
+      if (validatedUpdates.access_expiry_warning_days < 1 || validatedUpdates.access_expiry_warning_days > 30) {
+        return res.status(400).json({ 
+          error: 'access_expiry_warning_days must be between 1 and 30' 
+        });
+      }
     }
     
-    if (typeof updates.admin_alerts_enabled === 'boolean') {
-      notificationSettings.admin_alerts_enabled = updates.admin_alerts_enabled;
+    if (validatedUpdates.notification_time !== undefined) {
+      if (!/^\d{2}:\d{2}$/.test(validatedUpdates.notification_time)) {
+        return res.status(400).json({ 
+          error: 'notification_time must be in HH:MM format' 
+        });
+      }
     }
-    
-    if (typeof updates.admin_email === 'string') {
-      notificationSettings.admin_email = updates.admin_email.trim();
-    }
-    
-    if (typeof updates.daily_notifications_enabled === 'boolean') {
-      notificationSettings.daily_notifications_enabled = updates.daily_notifications_enabled;
-    }
-    
-    if (typeof updates.notification_time === 'string' && /^\d{2}:\d{2}$/.test(updates.notification_time)) {
-      notificationSettings.notification_time = updates.notification_time;
-    }
+
+    const updatedSettings = await updateNotificationSettings(validatedUpdates);
 
     res.json({
       message: 'Notification settings updated',
-      settings: notificationSettings,
+      settings: updatedSettings,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update notification settings error:', error);
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ 
+        error: 'Invalid notification settings data',
+        details: error.errors,
+      });
+    }
     res.status(500).json({ error: 'Failed to update notification settings' });
   }
 });
@@ -368,12 +455,13 @@ router.post('/trigger-expiry-check', requireAdmin, async (req: AuthenticatedRequ
 // Get notification history/logs (basic implementation)
 router.get('/history', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
+    const settings = await getNotificationSettings();
     // In a production system, this would query a notifications log table
     // For now, return a simple response
     res.json({
       message: 'Notification history not yet implemented',
       last_check: lastNotificationCheck,
-      settings: notificationSettings,
+      settings: settings,
     });
   } catch (error) {
     console.error('Get notification history error:', error);
@@ -389,22 +477,31 @@ export const startNotificationScheduler = () => {
     clearInterval(backgroundTaskInterval);
   }
 
-  // Check every hour
+  // Check every minute for reliable timing
   backgroundTaskInterval = setInterval(async () => {
     try {
+      const settings = await getNotificationSettings();
       const now = new Date();
       const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      const today = now.toISOString().split('T')[0];
       
-      // Run daily check at the configured time
-      if (currentTime === notificationSettings.notification_time) {
+      // Run daily check at the configured time if not already run today (with 1-minute tolerance)
+      const scheduledTime = settings.notification_time;
+      const [scheduledHour, scheduledMinute] = scheduledTime.split(':').map(Number);
+      const [currentHour, currentMinute] = [now.getHours(), now.getMinutes()];
+      
+      const isScheduledTime = (currentHour === scheduledHour && Math.abs(currentMinute - scheduledMinute) <= 1);
+      
+      // Check database-persisted last run date (more reliable than in-memory across restarts)
+      if (isScheduledTime && settings.last_run_date !== today) {
         await runDailyNotificationCheck();
       }
     } catch (error) {
       console.error('Background notification task error:', error);
     }
-  }, 60 * 60 * 1000); // Every hour
+  }, 60 * 1000); // Every minute for reliable scheduling
 
-  console.log('Notification scheduler started');
+  console.log('Notification scheduler started (checking every minute)');
 };
 
 export const stopNotificationScheduler = () => {

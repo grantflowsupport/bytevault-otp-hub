@@ -107,6 +107,19 @@ export const productTotp = pgTable("product_totp", {
   created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });
 
+// Notification settings
+export const notificationSettings = pgTable("notification_settings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  access_expiry_warning_days: integer("access_expiry_warning_days").notNull().default(7),
+  admin_alerts_enabled: boolean("admin_alerts_enabled").notNull().default(true),
+  admin_email: text("admin_email").notNull().default(""),
+  daily_notifications_enabled: boolean("daily_notifications_enabled").notNull().default(true),
+  notification_time: text("notification_time").notNull().default("09:00"), // HH:MM format
+  last_run_date: text("last_run_date").default("1970-01-01"), // YYYY-MM-DD format for daily run tracking
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
+
 // Insert schemas
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -148,6 +161,12 @@ export const insertProductTotpSchema = createInsertSchema(productTotp).omit({
   created_at: true,
 });
 
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
 // Types
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -172,3 +191,6 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 export type ProductTotp = typeof productTotp.$inferSelect;
 export type InsertProductTotp = z.infer<typeof insertProductTotpSchema>;
+
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
