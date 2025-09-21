@@ -71,6 +71,20 @@ export default function Admin({ user }: AdminProps) {
   // Tab state management
   const [activeTab, setActiveTab] = useState("products");
 
+  // Add focus management to prevent focus restoration from changing tabs
+  useEffect(() => {
+    const handleFocus = () => {
+      // When the page gains focus (after Alt+Tab), ensure focus goes to a safe element
+      const safeElement = document.querySelector('[data-focus-trap]') as HTMLElement;
+      if (safeElement) {
+        safeElement.focus();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ['/api/admin/products'],
@@ -360,6 +374,14 @@ export default function Admin({ user }: AdminProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hidden focus trap to prevent tab switching on browser refocus */}
+      <div 
+        data-focus-trap
+        tabIndex={0}
+        className="sr-only"
+        aria-label="Focus trap"
+      />
+      
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-foreground">Admin Panel</h2>
         <p className="text-muted-foreground mt-1">Manage products, accounts, and user access</p>
