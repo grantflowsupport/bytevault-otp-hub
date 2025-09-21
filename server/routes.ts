@@ -48,14 +48,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch credentials for all user's products
       const productIds = data.map((item: any) => item.products.id);
       let credentials: any[] = [];
+      let totpConfigs: any[] = [];
       
       if (productIds.length > 0) {
+        // Fetch credentials
         const { data: credData } = await supabaseAdmin
           .from('product_credentials')
           .select('*')
           .in('product_id', productIds)
           .eq('is_active', true);
         credentials = credData || [];
+
+        // Fetch TOTP configurations
+        const { data: totpData } = await supabaseAdmin
+          .from('product_totp')
+          .select('product_id')
+          .in('product_id', productIds)
+          .eq('is_active', true);
+        totpConfigs = totpData || [];
       }
 
       // Transform the data to a more usable format
@@ -63,6 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...item.products,
         expires_at: item.expires_at,
         credentials: credentials.filter(cred => cred.product_id === item.products.id),
+        has_totp: totpConfigs.some(totp => totp.product_id === item.products.id),
       }));
 
       res.json(products);

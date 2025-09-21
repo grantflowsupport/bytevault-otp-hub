@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import OTPModal from "./OTPModal.tsx";
+import TOTPModal from "./TOTPModal.tsx";
 
 interface ProductCardProps {
   product: any;
@@ -16,6 +17,8 @@ interface ProductCardProps {
 export default function ProductCard({ product, user }: ProductCardProps) {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpData, setOtpData] = useState<any>(null);
+  const [showTotpModal, setShowTotpModal] = useState(false);
+  const [totpData, setTotpData] = useState<any>(null);
   const { toast } = useToast();
 
   const getOtpMutation = useMutation({
@@ -65,8 +68,71 @@ export default function ProductCard({ product, user }: ProductCardProps) {
     },
   });
 
+  const getTotpMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/get-totp/${product.slug}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to get TOTP');
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      setTotpData(data);
+      setShowTotpModal(true);
+    },
+    onError: (error: Error) => {
+      if (error.message.includes('rate_limited')) {
+        toast({
+          variant: "destructive",
+          title: "Rate Limited",
+          description: "Too many requests. Please try again in a moment.",
+        });
+      } else if (error.message.includes('totp_not_configured')) {
+        toast({
+          variant: "destructive",
+          title: "2FA Not Configured",
+          description: "TOTP codes are not configured for this product.",
+        });
+      } else if (error.message.includes('access_denied')) {
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "You don't have access to this product.",
+        });
+      } else if (error.message.includes('access_expired')) {
+        toast({
+          variant: "destructive",
+          title: "Access Expired",
+          description: "Your access to this product has expired.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message,
+        });
+      }
+    },
+  });
+
   const handleGetOtp = () => {
     getOtpMutation.mutate();
+  };
+
+  const handleGetTotp = () => {
+    getTotpMutation.mutate();
   };
 
   const copyToClipboard = async (text: string) => {
@@ -210,15 +276,30 @@ export default function ProductCard({ product, user }: ProductCardProps) {
             </div>
           </div>
           
-          {/* Get OTP Button */}
-          <Button 
-            onClick={handleGetOtp}
-            disabled={getOtpMutation.isPending}
-            className="w-full"
-            data-testid={`button-get-otp-${product.id}`}
-          >
-            {getOtpMutation.isPending ? "Getting OTP..." : "Get OTP"}
-          </Button>
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <Button 
+              onClick={handleGetOtp}
+              disabled={getOtpMutation.isPending}
+              className="w-full"
+              data-testid={`button-get-otp-${product.id}`}
+            >
+              {getOtpMutation.isPending ? "Getting OTP..." : "Get OTP"}
+            </Button>
+            
+            {/* Get 2FA Code Button - shown if TOTP is available */}
+            {product.has_totp && (
+              <Button 
+                onClick={handleGetTotp}
+                disabled={getTotpMutation.isPending}
+                variant="outline"
+                className="w-full"
+                data-testid={`button-get-totp-${product.id}`}
+              >
+                {getTotpMutation.isPending ? "Getting 2FA Code..." : "Get 2FA Code"}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -228,6 +309,14 @@ export default function ProductCard({ product, user }: ProductCardProps) {
         otpData={otpData}
         product={product}
         onRefresh={handleGetOtp}
+      />
+
+      <TOTPModal 
+        isOpen={showTotpModal}
+        onClose={() => setShowTotpModal(false)}
+        totpData={totpData}
+        product={product}
+        onRefresh={handleGetTotp}
       />
     </>
   );

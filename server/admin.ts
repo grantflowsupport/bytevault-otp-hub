@@ -7,9 +7,11 @@ import {
   insertAccountSchema, 
   insertProductAccountSchema, 
   insertProductCredentialSchema,
-  insertUserAccessSchema 
+  insertUserAccessSchema,
+  insertProductTotpSchema 
 } from '../shared/schema.js';
 import { AuditService } from './audit.js';
+import { TotpService } from './totp.js';
 
 const router = Router();
 
@@ -251,6 +253,65 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
   } catch (error) {
     console.error('Create user access error:', error);
     res.status(400).json({ error: 'Invalid user access data' });
+  }
+});
+
+// Create/Update Product TOTP
+router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const data = req.body;
+    const auditContext = AuditService.getContext(req);
+    
+    // Validate the secret if provided
+    if (data.secret_base32 && !TotpService.validateSecret(data.secret_base32)) {
+      return res.status(400).json({ error: 'Invalid Base32 secret format' });
+    }
+    
+    // Fetch existing data for audit logging
+    let oldValues = null;
+    let action: 'create' | 'update' = 'create';
+    
+    if (data.id) {
+      oldValues = await AuditService.fetchCurrentState('product_totp', data.id);
+      if (oldValues) {
+        action = 'update';
+      }
+    }
+    
+    // Encrypt the secret
+    if (data.secret_base32) {
+      data.secret_enc = TotpService.encryptSecret(data.secret_base32);
+      delete data.secret_base32; // Remove plaintext secret
+    }
+    
+    const validatedData = insertProductTotpSchema.parse(data);
+    
+    const { data: result, error } = await supabaseAdmin
+      .from('product_totp')
+      .upsert(validatedData)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the action (without the encrypted secret)
+    const sanitizedResult = { ...result, secret_enc: '[ENCRYPTED]' };
+    const sanitizedOldValues = oldValues ? { ...oldValues, secret_enc: '[ENCRYPTED]' } : null;
+    
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_totp',
+      action,
+      entity_id: result.id,
+      old_values: sanitizedOldValues,
+      new_values: sanitizedResult,
+    });
+
+    res.json(sanitizedResult);
+  } catch (error) {
+    console.error('Create TOTP error:', error);
+    res.status(400).json({ error: 'Invalid TOTP data' });
   }
 });
 

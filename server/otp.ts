@@ -4,6 +4,7 @@ import { supabaseAdmin } from './db.js';
 import { decrypt } from './crypto.js';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import { TotpService } from './totp.js';
 
 const router = Router();
 
@@ -321,6 +322,106 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
 
   } catch (error) {
     console.error('OTP fetch error:', error);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// Get TOTP code for a product
+router.post('/get-totp/:slug', requireUser, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { slug } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+
+    // Check rate limit (reuse same limiter as email OTP)
+    if (!checkRateLimit(userId, slug)) {
+      await logOTP(userId, slug, null, 'rate_limited', 'TOTP request rate limit exceeded');
+      return res.status(429).json({ error: 'rate_limited', message: 'Too many requests' });
+    }
+
+    // 1. Get the product by slug
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('id, slug, title, is_active')
+      .eq('slug', slug)
+      .single();
+
+    if (productError || !product) {
+      await logOTP(userId, slug, null, 'product_not_found', 'Product not found');
+      return res.status(404).json({ error: 'product_not_found' });
+    }
+
+    if (!product.is_active) {
+      await logOTP(userId, product.id, null, 'product_inactive', 'Product is inactive');
+      return res.status(403).json({ error: 'product_inactive' });
+    }
+
+    // 2. Validate user has active access to this product
+    const { data: userAccess, error: accessError } = await supabaseAdmin
+      .from('user_access')
+      .select('expires_at')
+      .eq('user_id', userId)
+      .eq('product_id', product.id)
+      .single();
+
+    if (accessError || !userAccess) {
+      await logOTP(userId, product.id, null, 'access_denied', 'User does not have access to this product');
+      return res.status(403).json({ error: 'access_denied' });
+    }
+
+    // Check if access has expired
+    if (userAccess.expires_at && new Date(userAccess.expires_at) < new Date()) {
+      await logOTP(userId, product.id, null, 'access_expired', 'User access has expired');
+      return res.status(403).json({ error: 'access_expired' });
+    }
+
+    // 3. Load active product_totp for that product
+    const { data: totpConfig, error: totpError } = await supabaseAdmin
+      .from('product_totp')
+      .select('id, secret_enc, issuer, account_label, digits, period, algorithm')
+      .eq('product_id', product.id)
+      .eq('is_active', true)
+      .single();
+
+    if (totpError || !totpConfig) {
+      await logOTP(userId, product.id, null, 'totp_not_configured', 'TOTP not configured for this product');
+      return res.status(404).json({ error: 'totp_not_configured' });
+    }
+
+    // 4. Generate TOTP code
+    try {
+      const { code, valid_for_seconds } = TotpService.generateCode({
+        secret_enc: totpConfig.secret_enc,
+        digits: totpConfig.digits,
+        period: totpConfig.period,
+        algorithm: totpConfig.algorithm,
+      });
+
+      // 5. Log successful TOTP generation
+      await logOTP(userId, product.id, totpConfig.id, 'totp_success', 
+        `TOTP generated (${totpConfig.digits} digits, ${totpConfig.period}s period)`);
+
+      return res.json({
+        code,
+        valid_for_seconds,
+        issuer: totpConfig.issuer,
+        account_label: totpConfig.account_label,
+        fetched_at: new Date().toISOString(),
+      });
+
+    } catch (totpError: any) {
+      await logOTP(userId, product.id, totpConfig.id, 'totp_error', 
+        `TOTP generation failed: ${totpError.message}`);
+      return res.status(500).json({ error: 'totp_generation_failed' });
+    }
+
+  } catch (error: any) {
+    console.error('TOTP fetch error:', error);
+    await logOTP(req.user?.id || 'unknown', req.params.slug, null, 'error', 
+      `TOTP endpoint error: ${error.message}`);
     return res.status(500).json({ error: 'internal_error' });
   }
 });

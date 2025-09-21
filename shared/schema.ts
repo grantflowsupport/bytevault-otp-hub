@@ -93,6 +93,20 @@ export const auditLogs = pgTable("audit_logs", {
   created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });
 
+// Product TOTP configurations
+export const productTotp = pgTable("product_totp", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  product_id: uuid("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  secret_enc: text("secret_enc").notNull(), // AES-GCM encrypted Base32 secret
+  issuer: text("issuer"),
+  account_label: text("account_label"),
+  digits: integer("digits").notNull().default(6),
+  period: integer("period").notNull().default(30),
+  algorithm: text("algorithm").notNull().default("SHA1"),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
+
 // Insert schemas
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -129,6 +143,11 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   created_at: true,
 });
 
+export const insertProductTotpSchema = createInsertSchema(productTotp).omit({
+  id: true,
+  created_at: true,
+});
+
 // Types
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -150,3 +169,6 @@ export type InsertOtpLog = z.infer<typeof insertOtpLogSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export type ProductTotp = typeof productTotp.$inferSelect;
+export type InsertProductTotp = z.infer<typeof insertProductTotpSchema>;
