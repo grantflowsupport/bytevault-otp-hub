@@ -371,8 +371,6 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       .select()
       .single();
     
-    console.error('TOTP Debug - Product update result:', productUpdate);
-    console.error('TOTP Debug - Product update error:', updateError);
     
     if (updateError) {
       return res.status(400).json({ error: 'Failed to store TOTP configuration: ' + updateError.message });
@@ -395,7 +393,6 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const sanitizedResult = { ...result, secret_enc: '[ENCRYPTED]' };
     const sanitizedOldValues = oldValues ? { ...oldValues, secret_enc: '[ENCRYPTED]' } : null;
     
-    console.error('TOTP Debug - SUCCESS! Returning result:', sanitizedResult);
     
     // Return success response immediately
     res.json(sanitizedResult);
@@ -408,7 +405,6 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       old_values: sanitizedOldValues,
       new_values: sanitizedResult,
     }).catch((auditError) => {
-      console.error('TOTP Debug - Audit logging failed (non-blocking):', auditError);
     });
   } catch (error) {
     console.error('Create TOTP error:', error);
@@ -419,7 +415,6 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
 // Get all TOTP configurations (admin view)
 router.get('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    console.error('TOTP Debug - GET /totp endpoint called');
     
     // Since PostgREST can't find product_totp table, use workaround
     // Look for products that have "TOTP configured" in their description
@@ -428,10 +423,8 @@ router.get('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       .select('*')
       .ilike('description', '%TOTP configured%');
     
-    console.error('TOTP Debug - Found products with TOTP:', products?.length || 0);
     
     if (error) {
-      console.error('TOTP Debug - Error fetching products:', error);
       return res.status(400).json({ error: error.message });
     }
 
@@ -462,7 +455,6 @@ router.get('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       };
     });
 
-    console.error('TOTP Debug - Returning TOTP configs:', totpConfigs.length);
     res.json(totpConfigs);
   } catch (error) {
     console.error('Get TOTP configs error:', error);
