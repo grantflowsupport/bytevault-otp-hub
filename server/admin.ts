@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin, AuthenticatedRequest } from './auth.js';
-import { supabaseAdmin } from './db.js';
+import { supabaseAdmin, db } from './db.js';
 import { encrypt } from './crypto.js';
 import { 
   insertProductSchema, 
@@ -10,6 +10,8 @@ import {
   insertUserAccessSchema,
   insertProductTotpSchema 
 } from '../shared/schema.js';
+import { products, accounts, productAccounts, productCredentials, userAccess, otpLogs, productTotp } from '../shared/schema.js';
+import { desc, eq, gte, lte, count, sql, and } from 'drizzle-orm';
 import { AuditService } from './audit.js';
 import { TotpService } from './totp.js';
 import { userDirectoryService } from './user-directory.js';
@@ -561,31 +563,22 @@ router.get('/credentials', requireAdmin, async (req: AuthenticatedRequest, res) 
 // Get overall analytics summary
 router.get('/analytics/summary', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    const { data: totals, error: totalsError } = await supabaseAdmin
-      .rpc('get_analytics_summary');
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const logs = await db.select({
+      status: otpLogs.status
+    })
+    .from(otpLogs)
+    .where(gte(otpLogs.created_at, thirtyDaysAgo));
 
-    if (totalsError) {
-      return res.status(400).json({ error: totalsError.message });
-    }
+    const summary = {
+      total_requests: logs.length,
+      successful_requests: logs.filter(l => l.status === 'success').length,
+      failed_requests: logs.filter(l => l.status !== 'success').length,
+      success_rate: logs.length ? (logs.filter(l => l.status === 'success').length / logs.length * 100) : 0,
+    };
 
-    // Fallback to basic query if RPC not available
-    if (!totals) {
-      const { data: logs } = await supabaseAdmin
-        .from('otp_logs')
-        .select('status')
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      const summary = {
-        total_requests: logs?.length || 0,
-        successful_requests: logs?.filter(l => l.status === 'success').length || 0,
-        failed_requests: logs?.filter(l => l.status !== 'success').length || 0,
-        success_rate: logs?.length ? (logs.filter(l => l.status === 'success').length / logs.length * 100) : 0,
-      };
-
-      return res.json(summary);
-    }
-
-    res.json(totals);
+    res.json(summary);
   } catch (error) {
     console.error('Get analytics summary error:', error);
     res.status(500).json({ error: 'Failed to fetch analytics summary' });
