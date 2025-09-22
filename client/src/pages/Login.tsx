@@ -52,7 +52,7 @@ export default function Login() {
                 </svg>
               </div>
               <h1 className="text-2xl font-bold text-foreground">ByteVault OTP Hub</h1>
-              <p className="text-muted-foreground mt-2">Multi-Product OTP Gateway</p>
+              <p className="text-muted-foreground mt-2">Multi-Product OTP Gateway - Updated</p>
             </div>
             
             <form onSubmit={handleLogin} className="space-y-6">
