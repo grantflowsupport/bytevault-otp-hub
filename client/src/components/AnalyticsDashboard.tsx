@@ -200,7 +200,12 @@ export default function AnalyticsDashboard() {
             </div>
           ) : (
             <ChartContainer config={chartConfig} className="h-64 w-full">
-              <LineChart data={timeline || []}>
+              <LineChart data={timeline?.map(d => ({
+                ...d,
+                total_requests: Number(d.total_requests),
+                successful_requests: Number(d.successful_requests),
+                failed_requests: Number(d.failed_requests)
+              })) || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -209,21 +214,21 @@ export default function AnalyticsDashboard() {
                 <Line 
                   type="monotone" 
                   dataKey="total_requests" 
-                  stroke="var(--color-total_requests)" 
+                  stroke="hsl(var(--chart-1))" 
                   strokeWidth={2}
                   name="Total Requests"
                 />
                 <Line 
                   type="monotone" 
                   dataKey="successful_requests" 
-                  stroke="var(--color-successful_requests)" 
+                  stroke="hsl(var(--chart-2))" 
                   strokeWidth={2}
                   name="Successful"
                 />
                 <Line 
                   type="monotone" 
                   dataKey="failed_requests" 
-                  stroke="var(--color-failed_requests)" 
+                  stroke="hsl(var(--chart-3))" 
                   strokeWidth={2}
                   name="Failed"
                 />
