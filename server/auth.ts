@@ -45,6 +45,6 @@ export async function requireAdmin(req: AuthenticatedRequest, res: Response, nex
 }
 
 function isAdminEmail(email: string): boolean {
-  const adminEmails = ['harryroger798@gmail.com', 'admin@otp.bytevault.co.in'];
+  const adminEmails = ['harryroger798@gmail.com', 'admin@byteshopotp.co.site'];
   return adminEmails.includes(email);
 }

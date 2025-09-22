@@ -63,7 +63,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@otp.bytevault.co.in"
+                  placeholder="admin@byteshopotp.co.site"
                   required
                   data-testid="input-email"
                 />
@@ -94,7 +94,7 @@ export default function Login() {
             
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Contact: <a href="mailto:admin@otp.bytevault.co.in" className="text-primary hover:underline">admin@otp.bytevault.co.in</a>
+                Contact: <a href="mailto:admin@byteshopotp.co.site" className="text-primary hover:underline">admin@byteshopotp.co.site</a>
               </p>
             </div>
           </CardContent>
