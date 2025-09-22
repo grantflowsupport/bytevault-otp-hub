@@ -70,18 +70,28 @@ export class TotpService {
    */
   static validateSecret(secret: string): boolean {
     try {
+      // Normalize secret (trim whitespace and uppercase)
+      const normalized = secret.trim().replace(/\s+/g, '').toUpperCase();
+      
       // Check if it's valid Base32
       const base32Regex = /^[A-Z2-7]+=*$/i;
-      if (!base32Regex.test(secret)) {
+      if (!base32Regex.test(normalized)) {
         return false;
       }
       
       // Try to generate a code to ensure it works
-      authenticator.options = TotpService.getDefaultConfig() as any;
-      const testCode = authenticator.generate(secret);
+      const defaults = TotpService.getDefaultConfig();
+      authenticator.options = {
+        digits: defaults.digits,
+        step: defaults.period,  // otplib uses 'step' not 'period'
+        algorithm: (defaults.algorithm || 'sha1').toLowerCase() as any,  // otplib needs lowercase
+      };
+      
+      const testCode = authenticator.generate(normalized);
       
       return testCode.length > 0;
     } catch (error) {
+      console.error('TOTP validation error:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
