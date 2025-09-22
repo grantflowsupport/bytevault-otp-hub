@@ -1,0 +1,237 @@
+You are Replit AI.
+
+GOAL: Make my existing OTP Hub project fully ready for Render Free + UptimeRobot, WITHOUT breaking anything I already have. 
+First AUDIT the repo, then PATCH only what’s missing. 
+Block until I enter env secrets.
+
+========================
+PHASE 0 — PRE-FLIGHT
+========================
+PROMPT ME to enter these secrets and DO NOT write or change code until I supply values (or placeholders) for all:
+- SUPABASE_URL
+- SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE            # server-only
+- CRYPTO_SECRET_KEY                # ≥ 32 chars (AES-GCM)
+- EMAIL_FETCH_LIMIT                # e.g., 20
+- DEFAULT_OTP_REGEX                # e.g., \b\d{6}\b
+- VITE_SUPABASE_URL                # = SUPABASE_URL
+- VITE_SUPABASE_ANON_KEY           # = SUPABASE_ANON_KEY
+Once I confirm, proceed.
+
+========================
+PHASE 1 — AUDIT
+========================
+Scan the repo and produce a short REPORT (no changes yet):
+1) Server entry file (likely server/index.js) exists? Using Express? Using process.env.PORT?
+2) Health endpoint present? 
+   GET /api/health → 200 JSON { ok: true } with NO DB calls.
+3) Static serving set up?
+   - Build dir: /web/dist
+   - express.static for /web/dist
+   - SPA fallback to index.html for non-/api routes
+4) NPM scripts present?
+   - "dev", "dev-api", "dev-web", "build", "start"
+5) Frontend present? (Vite React under /web with index.html, src/, vite.config.js)
+6) Dockerfile exists? (two-stage build)
+7) render.yaml exists? (web service, build/start commands, env vars unsynced)
+8) README has Render + UptimeRobot steps?
+9) TOTP add-on present?
+   - product_totp table usage, admin endpoint (/api/admin/totp), user endpoint (/api/get-totp/:slug)
+   - AES-GCM encryption of TOTP secret
+10) IMAP email OTP pipeline present?
+    - /api/get-otp/:slug route; AES-GCM for IMAP creds
+
+OUTPUT the audit summary as a checklist with ✅/❌ and file paths found.
+
+========================
+PHASE 2 — PATCH (only add what’s missing)
+========================
+Apply minimal changes to satisfy these requirements:
+
+A) SERVER (Express)
+- Ensure `app.get('/api/health', (_,res)=>res.json({ ok: true }))`.
+- Ensure server listens on `process.env.PORT || 3000`.
+- After API routes, ensure:
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, '..', 'web', 'dist');
+
+app.use(express.static(distPath));
+app.get('*', (req, res) => {
+if (req.path.startsWith('/api/')) return res.status(404).end();
+res.sendFile(path.join(distPath, 'index.html'));
+});
+
+swift
+Copy code
+- If these already exist, do NOT duplicate—just confirm.
+
+B) NPM SCRIPTS (package.json)
+- Ensure:
+"dev": "concurrently \"npm:dev-api\" \"npm:dev-web\"",
+"dev-api": "nodemon server/index.js",
+"dev-web": "vite --port 5173",
+"build": "vite build",
+"start": "node server/index.js"
+- If present, leave as-is.
+
+C) FRONTEND (Vite React)
+- Ensure /web/index.html, /web/src/main.jsx, /web/vite.config.js exist. 
+- In vite.config.js, ensure dev proxy:
+server: { proxy: { '/api': 'http://localhost:3000' } }
+
+css
+Copy code
+- Do not overwrite existing working code.
+
+D) DOCKERFILE (if missing)
+Create a two-stage `Dockerfile`:
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app /app
+EXPOSE 3000
+CMD ["node","server/index.js"]
+
+yaml
+Copy code
+
+E) render.yaml (if missing)
+Create `render.yaml` with unsynced env vars:
+```yaml
+services:
+  - type: web
+    name: bytevault-otp-hub
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node server/index.js
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE
+        sync: false
+      - key: CRYPTO_SECRET_KEY
+        sync: false
+      - key: EMAIL_FETCH_LIMIT
+        sync: false
+      - key: DEFAULT_OTP_REGEX
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+F) README.md (append or create)
+Add sections:
+
+Build & Run
+
+npm run build then npm start
+
+/api/health returns { ok: true }
+
+Deploy on Render (Free)
+
+Build: npm ci && npm run build
+
+Start: node server/index.js
+
+Add env vars listed above in Render dashboard
+
+(Optional) connect custom domain and CNAME
+
+UptimeRobot Setup
+
+New Monitor → HTTP(s)
+
+URL: https://<YOUR-RENDER-URL>.onrender.com/api/health
+
+Interval: 5 minutes
+
+Add your alert email
+
+Security Notes
+
+SERVICE_ROLE only on server
+
+AES-GCM for IMAP/TOTP secrets
+
+Do not expose decrypted secrets to client
+
+Rate-limit OTP/TOTP endpoints
+
+G) TOTP ADD-ON (only if missing)
+
+Create public.product_totp table & RLS if not present; admin endpoint POST /api/admin/totp; user endpoint POST /api/get-totp/:slug; use server-side TOTP library; store secret AES-GCM; never return secret; log fetches.
+
+H) EMAIL OTP (verify)
+
+Ensure /api/get-otp/:slug exists using IMAP credentials stored encrypted; keep rate limit and logging.
+
+========================
+PHASE 3 — VERIFY
+Set secrets in the Replit env (match PRE-FLIGHT).
+
+Run: npm run build then npm start.
+
+Confirm:
+
+GET /api/health → { ok: true }
+
+Root URL serves the React app.
+
+Output a final checklist with ✅/❌ and EXACT next commands:
+
+“git push to GitHub”
+
+Render setup (build/start commands + env vars)
+
+UptimeRobot monitor URL to use
+
+========================
+PHASE 4 — PRINT DEPLOY STEPS
+Print the final, copy-paste steps for:
+
+GitHub push
+
+Render Free deploy (with or without render.yaml)
+
+UptimeRobot monitor creation using the health endpoint
+
+IMPORTANT:
+
+Never remove or break existing working logic.
+
+Only add missing pieces.
+
+Keep /api/health dead-simple and fast.
+
+Acknowledge any divergences in structure (e.g., if server code is in a different path) and adapt.
+
+markdown
+Copy code
+
+---
+
+### What you’ll do after Replit AI finishes
+1) **Run build & start** on Replit to verify:
+   - `/api/health` → `{ ok: true }`
+   - App loads at `/`
+2) **Push to GitHub** (it’ll print the commands).
+3) **Create a Render Web Service** (free):
+   - Build: `npm ci && npm run build`
+   - Start: `node server/index.js`
+   - Add the env vars
+4) **Add UptimeRobot monitor** to `https://<your-app>.onrender.com/api/health` (or your custom domain later).
