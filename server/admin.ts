@@ -398,6 +398,7 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       new_values: sanitizedResult,
     });
 
+    console.error('TOTP Debug - SUCCESS! Returning result:', sanitizedResult);
     res.json(sanitizedResult);
   } catch (error) {
     console.error('Create TOTP error:', error);
