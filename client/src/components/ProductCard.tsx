@@ -284,8 +284,13 @@ export default function ProductCard({ product, user }: ProductCardProps) {
               className="w-full"
               data-testid={`button-get-otp-${product.id}`}
             >
-              {getOtpMutation.isPending ? "Getting OTP..." : "Get OTP"}
+              {getOtpMutation.isPending ? "Fetching from Email..." : "Get OTP"}
             </Button>
+            
+            {/* Disclaimer for email OTP */}
+            <p className="text-xs text-muted-foreground text-center" data-testid={`text-otp-disclaimer-${product.id}`}>
+              📧 OTP retrieval may take 1-2 minutes. Please wait patiently while we search your email.
+            </p>
             
             {/* Get 2FA Code Button - shown if TOTP is available */}
             {product.has_totp && (
@@ -296,7 +301,7 @@ export default function ProductCard({ product, user }: ProductCardProps) {
                 className="w-full"
                 data-testid={`button-get-totp-${product.id}`}
               >
-                {getTotpMutation.isPending ? "Getting 2FA Code..." : "Get 2FA Code"}
+                {getTotpMutation.isPending ? "Generating 2FA Code..." : "Get 2FA Code"}
               </Button>
             )}
           </div>

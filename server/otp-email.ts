@@ -195,7 +195,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
       return res.status(404).json({ error: 'no_accounts' });
     }
 
-    const EMAIL_FETCH_LIMIT = parseInt(process.env.EMAIL_FETCH_LIMIT || '20');
+    const EMAIL_FETCH_LIMIT = parseInt(process.env.EMAIL_FETCH_LIMIT || '10'); // Reduced for faster processing
     const DEFAULT_OTP_REGEX = process.env.DEFAULT_OTP_REGEX || '\\b\\d{6}\\b';
 
     // Try each account in order
@@ -287,19 +287,20 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             continue;
           }
 
-          // Fetch all messages (process from newest to oldest)
-          const messagesToFetch = Array.isArray(messages) ? messages : [];
+          // Fetch messages (process from newest to oldest, limited for performance)
+          const messagesToFetch = Array.isArray(messages) ? messages.reverse().slice(0, EMAIL_FETCH_LIMIT) : [];
           
           console.log('Messages to fetch:', {
             totalFound: messages.length,
-            messagesToFetch: messagesToFetch,
+            messagesToFetch: messagesToFetch.length,
             fetchLimit: EMAIL_FETCH_LIMIT
           });
           
           console.log('TEST_LOG_EXECUTION_CONTINUES');
           
           try {
-            for (const uid of messagesToFetch.reverse()) {
+            let otpFound = false;
+            for (const uid of messagesToFetch) {
             console.log('🔄 Fetching email UID:', uid);
             
             // Use correct ImapFlow API - fetchOne with source stream
@@ -370,7 +371,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                 console.log('Pattern test result:', {
                   pattern: pattern.source,
                   matchesFound: matches.length,
-                  matches: matches.map(m => m[0])
+                  matchLength: matches.length > 0 ? matches[0][0]?.length : 0
                 });
                 
                 // Timeout check (prevent long-running regex)
@@ -383,7 +384,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                   const bestMatch = isOtpRelated ? matches[0] : matches[matches.length - 1];
                   foundOtp = bestMatch[1] || bestMatch[0]; // Use capture group if available
                   matchPattern = pattern.source;
-                  break;
+                  break; // Break from pattern loop, continue with confidence check
                 }
               } catch (error) {
                 // Skip pattern if it fails
@@ -443,13 +444,13 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                   });
                 } else {
                   // Low confidence match - log and continue scanning more emails
-                  console.log(`⚠️ Low confidence OTP candidate "${foundOtp}" from ${parsed.from?.text} (trivial: ${isTrivial}, context: ${hasContextNearMatch}, sender: ${senderWhitelisted}, subject: ${isOtpRelated}) - continuing search...`);
+                  console.log(`⚠️ Low confidence OTP candidate (${foundOtp.length} chars) from ${parsed.from?.text} (trivial: ${isTrivial}, context: ${hasContextNearMatch}, sender: ${senderWhitelisted}, subject: ${isOtpRelated}) - continuing search...`);
                   foundOtp = null; // Reset to continue searching
                 }
               }
             }
           }
-          } catch (loopError) {
+          } catch (loopError: any) {
             console.error('💥 EMAIL PROCESSING LOOP ERROR:', {
               error: loopError.message,
               stack: loopError.stack,

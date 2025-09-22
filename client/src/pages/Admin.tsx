@@ -92,8 +92,8 @@ export default function Admin({ user }: AdminProps) {
       try {
         parsedData = JSON.parse(stored);
         // Migrate old user_id field to user_email
-        if (parsedData.user_id && !parsedData.user_email) {
-          delete parsedData.user_id;
+        if ((parsedData as any).user_id && !(parsedData as any).user_email) {
+          delete (parsedData as any).user_id;
         }
       } catch (e) {
         // If parsing fails, use default
