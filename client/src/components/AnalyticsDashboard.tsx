@@ -199,22 +199,14 @@ export default function AnalyticsDashboard() {
               <div className="animate-pulse text-muted-foreground">Loading timeline...</div>
             </div>
           ) : (
-            <>
-              {/* Debug: Show raw data */}
-              <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
-                <strong>Debug - Timeline data:</strong>
-                <pre>{JSON.stringify(timeline?.slice(0, 3), null, 2)}</pre>
-              </div>
-              
-              <ChartContainer config={chartConfig} className="h-64 w-full">
-                <LineChart data={timeline?.map(d => {
+            <ChartContainer config={chartConfig} className="h-64 w-full">
+                <BarChart data={timeline?.map(d => {
                   const normalized = {
                     ...d,
                     total_requests: Number(d.total_requests),
                     successful_requests: Number(d.successful_requests),
                     failed_requests: Number(d.failed_requests)
                   };
-                  console.log('Chart data item:', normalized);
                   return normalized;
                 }) || []}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -222,30 +214,23 @@ export default function AnalyticsDashboard() {
                 <YAxis />
                 <ChartTooltip />
                 <ChartLegend />
-                <Line 
-                  type="monotone" 
+                <Bar 
                   dataKey="total_requests" 
-                  stroke="hsl(var(--chart-1))" 
-                  strokeWidth={2}
+                  fill="#3b82f6"
                   name="Total Requests"
                 />
-                <Line 
-                  type="monotone" 
+                <Bar 
                   dataKey="successful_requests" 
-                  stroke="hsl(var(--chart-2))" 
-                  strokeWidth={2}
+                  fill="#10b981"
                   name="Successful"
                 />
-                <Line 
-                  type="monotone" 
+                <Bar 
                   dataKey="failed_requests" 
-                  stroke="hsl(var(--chart-3))" 
-                  strokeWidth={2}
+                  fill="#ef4444"
                   name="Failed"
                 />
-              </LineChart>
+              </BarChart>
             </ChartContainer>
-            </>
           )}
         </CardContent>
       </Card>
