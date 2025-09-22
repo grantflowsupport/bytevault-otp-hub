@@ -293,17 +293,20 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             fetchLimit: EMAIL_FETCH_LIMIT
           });
           
-          console.log('🔥 EXECUTION CHECKPOINT 1: Right after Messages to fetch log');
-          console.log('🚨 DEBUG: About to start email processing loop');
-          console.log('🚨 DEBUG: messagesToFetch type:', typeof messagesToFetch, 'length:', messagesToFetch.length);
-          console.log('🚨 DEBUG: messagesToFetch sample:', messagesToFetch.slice(0, 3));
-          
-          console.log('Starting email processing loop for', messagesToFetch.length, 'emails');
+          console.log('TEST_LOG_EXECUTION_CONTINUES');
           
           try {
             for (const uid of messagesToFetch.reverse()) {
             console.log('🔄 Downloading email UID:', uid);
-            const { content } = await client.download(uid);
+            const downloadResult = await client.download(uid);
+            console.log('📧 Downloaded email UID:', uid, 'download result:', typeof downloadResult, 'has content:', !!downloadResult?.content);
+            
+            if (!downloadResult || !downloadResult.content) {
+              console.log('❌ No content downloaded for UID:', uid);
+              continue;
+            }
+            
+            const { content } = downloadResult;
             console.log('📧 Downloaded email UID:', uid, 'size:', content.length);
             const parsed = await simpleParser(content);
             console.log('✅ Parsed email UID:', uid);
