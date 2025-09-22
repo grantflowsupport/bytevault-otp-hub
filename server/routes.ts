@@ -53,14 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totpConfigs: any[] = [];
       
       if (productIds.length > 0) {
-        console.log('DEBUG - Product IDs extracted:', productIds);
-        console.log('DEBUG - Raw data from query:', JSON.stringify(data, null, 2));
         
-        // Check for duplicates
-        const uniqueProductIds = [...new Set(productIds)];
-        if (productIds.length !== uniqueProductIds.length) {
-          console.log('DUPLICATE DETECTED - Original IDs:', productIds, 'Unique IDs:', uniqueProductIds);
-        }
         
         // Fetch credentials
         const { data: credData } = await supabaseAdmin
@@ -78,10 +71,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .in('id', productIds)
           .ilike('description', '%TOTP configured%');
         
-        console.log('DEBUG - TOTP products response:', JSON.stringify(totpProducts, null, 2));
         
         totpConfigs = (totpProducts || []).map(p => ({ product_id: p.id }));
-        console.log('TOTP configurations found:', totpConfigs.length, 'for products:', productIds);
       }
 
       // Transform the data to a more usable format

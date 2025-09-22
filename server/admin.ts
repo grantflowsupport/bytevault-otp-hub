@@ -310,21 +310,16 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     
     // Clean and validate the secret if provided
     if (data.secret_base32) {
-      console.error('TOTP Debug - Input secret: [REDACTED]');
-      console.error('TOTP Debug - Secret length:', data.secret_base32.length);
-      console.error('TOTP Debug - Secret type:', typeof data.secret_base32);
+      // Validate secret input
       
       const cleaned = TotpService.cleanSecret(data.secret_base32);
-      console.error('TOTP Debug - Cleaned secret length:', cleaned.length);
       
       if (cleaned.length < 16) {
-        console.error('TOTP Debug - Secret too short after cleaning:', cleaned.length);
         return res.status(400).json({ error: 'TOTP secret too short (minimum 16 characters)' });
       }
       
       // Store the cleaned secret
       data.secret_base32 = cleaned;
-      console.error('TOTP Debug - Using cleaned secret');
     }
     
     // Fetch existing data for audit logging
@@ -346,8 +341,7 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     
     const validatedData = insertProductTotpSchema.parse(data);
     
-    console.error('TOTP Debug - Validated data structure created (secret redacted)');
-    console.error('TOTP Debug - Attempting workaround for PostgREST schema cache issue');
+    // Store TOTP config using products description workaround
     
     // Since PostgREST can't find the table, let's try a workaround
     // Store in a JSON field in products table temporarily
