@@ -411,6 +411,48 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Get all TOTP configurations (admin view)
+router.get('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    console.error('TOTP Debug - GET /totp endpoint called');
+    
+    // Since PostgREST can't find product_totp table, use workaround
+    // Look for products that have "TOTP configured" in their description
+    const { data: products, error } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .ilike('description', '%TOTP configured%');
+    
+    console.error('TOTP Debug - Found products with TOTP:', products?.length || 0);
+    
+    if (error) {
+      console.error('TOTP Debug - Error fetching products:', error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Transform products into TOTP configuration format
+    const totpConfigs = (products || []).map(product => ({
+      id: `totp-${product.id}`,
+      product_id: product.id,
+      product_title: product.title,
+      product_slug: product.slug,
+      issuer: product.description.replace(' TOTP configured', ''),
+      account_label: product.title,
+      digits: 6,
+      period: 30,
+      algorithm: 'SHA1',
+      is_active: true,
+      created_at: product.created_at
+    }));
+
+    console.error('TOTP Debug - Returning TOTP configs:', totpConfigs.length);
+    res.json(totpConfigs);
+  } catch (error) {
+    console.error('Get TOTP configs error:', error);
+    res.status(500).json({ error: 'Failed to fetch TOTP configurations' });
+  }
+});
+
 // Get all products (admin view)
 router.get('/products', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
