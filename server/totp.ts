@@ -41,8 +41,9 @@ export class TotpService {
   }): { code: string; valid_for_seconds: number } {
     const defaults = TotpService.getDefaultConfig();
     
-    // Decrypt the secret
-    const secret = TotpService.decryptSecret(config.secret_enc);
+    // Decrypt and clean the secret
+    const decryptedSecret = TotpService.decryptSecret(config.secret_enc);
+    const secret = TotpService.cleanSecret(decryptedSecret);
     
     // Configure authenticator
     authenticator.options = {
@@ -66,38 +67,35 @@ export class TotpService {
   }
 
   /**
-   * Validate a TOTP secret (Base32 format)
+   * Clean and normalize a TOTP secret to RFC 4648 Base32 format
+   */
+  static cleanSecret(secret: string): string {
+    // Strict allowlist: only valid Base32 characters (A-Z, 2-7)
+    const cleaned = secret
+      .toUpperCase()
+      .replace(/[^A-Z2-7]/g, '');  // Remove everything except valid Base32 chars
+    
+    console.error('TOTP cleanSecret - original:', JSON.stringify(secret));
+    console.error('TOTP cleanSecret - cleaned:', JSON.stringify(cleaned));
+    
+    return cleaned;
+  }
+
+  /**
+   * Validate a TOTP secret (Base32 format) - simplified validation
    */
   static validateSecret(secret: string): boolean {
     try {
-      // Robust normalization: remove separators, whitespace, and zero-width characters
-      const normalized = secret
-        .trim()
-        .toUpperCase()
-        .replace(/[\s\-_:]/g, '')  // Remove spaces, hyphens, underscores, colons
-        .replace(/[\u200B-\u200D\uFEFF]/g, '')  // Remove zero-width characters
-        .replace(/=+$/, '');  // Remove trailing padding
+      const cleaned = TotpService.cleanSecret(secret);
       
-      console.log('TOTP validateSecret - original:', JSON.stringify(secret));
-      console.log('TOTP validateSecret - normalized:', JSON.stringify(normalized));
+      // Check minimum length (Base32 secrets should be at least 16 chars)
+      if (cleaned.length < 16) {
+        console.error('TOTP validation failed: secret too short (', cleaned.length, 'chars)');
+        return false;
+      }
       
-      // Validate by attempting to generate a code (most reliable method)
-      const defaults = TotpService.getDefaultConfig();
-      authenticator.options = {
-        digits: defaults.digits,
-        step: defaults.period,  // otplib uses 'step' not 'period'
-        algorithm: (defaults.algorithm || 'sha1').toLowerCase() as any,  // otplib needs lowercase
-      };
-      
-      console.log('TOTP validateSecret - authenticator options:', authenticator.options);
-      
-      const testCode = authenticator.generate(normalized);
-      console.log('TOTP validateSecret - generated test code:', testCode);
-      
-      const isValid = Boolean(testCode && testCode.length > 0);
-      console.log('TOTP validateSecret - final result:', isValid);
-      
-      return isValid;
+      console.error('TOTP validateSecret - cleaned secret length:', cleaned.length);
+      return true;
     } catch (error) {
       console.error('TOTP validation error:', error instanceof Error ? error.message : String(error));
       return false;

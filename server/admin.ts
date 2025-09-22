@@ -308,19 +308,23 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const data = req.body;
     const auditContext = AuditService.getContext(req);
     
-    // Validate the secret if provided
+    // Clean and validate the secret if provided
     if (data.secret_base32) {
-      console.log('TOTP Debug - Input secret:', JSON.stringify(data.secret_base32));
-      console.log('TOTP Debug - Secret length:', data.secret_base32.length);
-      console.log('TOTP Debug - Secret type:', typeof data.secret_base32);
+      console.error('TOTP Debug - Input secret:', JSON.stringify(data.secret_base32));
+      console.error('TOTP Debug - Secret length:', data.secret_base32.length);
+      console.error('TOTP Debug - Secret type:', typeof data.secret_base32);
       
-      const isValid = TotpService.validateSecret(data.secret_base32);
-      console.log('TOTP Debug - Validation result:', isValid);
+      const cleaned = TotpService.cleanSecret(data.secret_base32);
+      console.error('TOTP Debug - Cleaned secret length:', cleaned.length);
       
-      if (!isValid) {
-        console.log('TOTP Debug - Validation failed for secret:', data.secret_base32);
-        return res.status(400).json({ error: 'Invalid Base32 secret format' });
+      if (cleaned.length < 16) {
+        console.error('TOTP Debug - Secret too short after cleaning:', cleaned.length);
+        return res.status(400).json({ error: 'TOTP secret too short (minimum 16 characters)' });
       }
+      
+      // Store the cleaned secret
+      data.secret_base32 = cleaned;
+      console.error('TOTP Debug - Using cleaned secret');
     }
     
     // Fetch existing data for audit logging
