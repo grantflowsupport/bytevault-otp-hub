@@ -86,10 +86,26 @@ export default function Admin({ user }: AdminProps) {
 
   const [userAccessForm, setUserAccessForm] = useState(() => {
     const stored = localStorage.getItem('userAccessForm');
-    return stored ? JSON.parse(stored) : {
+    let parsedData = {};
+    
+    if (stored) {
+      try {
+        parsedData = JSON.parse(stored);
+        // Migrate old user_id field to user_email
+        if (parsedData.user_id && !parsedData.user_email) {
+          delete parsedData.user_id;
+        }
+      } catch (e) {
+        // If parsing fails, use default
+        localStorage.removeItem('userAccessForm');
+      }
+    }
+    
+    return {
       user_email: '',
       product_id: '',
       expires_at: '',
+      ...parsedData
     };
   });
 
