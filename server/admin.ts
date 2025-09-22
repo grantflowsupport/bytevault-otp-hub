@@ -12,6 +12,7 @@ import {
 } from '../shared/schema.js';
 import { AuditService } from './audit.js';
 import { TotpService } from './totp.js';
+import { userDirectoryService } from './user-directory.js';
 
 const router = Router();
 
@@ -213,6 +214,16 @@ router.post('/user-access', requireAdmin, async (req: AuthenticatedRequest, res)
   try {
     // Convert expires_at string to Date object if provided
     const requestBody = { ...req.body };
+    
+    // Handle user_email to user_id resolution
+    if (requestBody.user_email && !requestBody.user_id) {
+      const userId = await userDirectoryService.resolveUserIdByEmail(requestBody.user_email);
+      if (!userId) {
+        return res.status(400).json({ error: `User not found with email: ${requestBody.user_email}` });
+      }
+      requestBody.user_id = userId;
+      delete requestBody.user_email; // Remove user_email from the data to be stored
+    }
     
     // First handle empty strings/null for unlimited access
     if (requestBody.expires_at === '' || requestBody.expires_at === null || requestBody.expires_at === undefined) {
@@ -1242,7 +1253,21 @@ router.get('/user-access', requireAdmin, async (req: AuthenticatedRequest, res) 
       return res.status(400).json({ error: error.message });
     }
 
-    res.json(data);
+    // Enrich with user emails
+    if (data && data.length > 0) {
+      const userIds = Array.from(new Set(data.map((item: any) => item.user_id)));
+      const emailMap = await userDirectoryService.getEmailsForUserIds(userIds);
+      
+      // Add user_email to each record
+      const enrichedData = data.map((item: any) => ({
+        ...item,
+        user_email: emailMap.get(item.user_id) || 'Unknown'
+      }));
+      
+      res.json(enrichedData);
+    } else {
+      res.json(data);
+    }
   } catch (error) {
     console.error('Get user access error:', error);
     res.status(500).json({ error: 'Failed to fetch user access' });
@@ -1276,6 +1301,24 @@ router.post('/bulk-access/update', requireAdmin, async (req: AuthenticatedReques
   } catch (error) {
     console.error('Bulk update error:', error);
     res.status(500).json({ error: 'Failed to update user access' });
+  }
+});
+
+// Search users by email (for typeahead)
+router.get('/search-users', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const query = req.query.q as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+    
+    const users = await userDirectoryService.searchUsersByEmail(query, limit);
+    res.json(users);
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
   }
 });
 

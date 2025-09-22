@@ -87,7 +87,7 @@ export default function Admin({ user }: AdminProps) {
   const [userAccessForm, setUserAccessForm] = useState(() => {
     const stored = localStorage.getItem('userAccessForm');
     return stored ? JSON.parse(stored) : {
-      user_id: '',
+      user_email: '',
       product_id: '',
       expires_at: '',
     };
@@ -890,7 +890,7 @@ export default function Admin({ user }: AdminProps) {
       onSuccess: () => {
         localStorage.removeItem('userAccessForm');
         setUserAccessForm({
-          user_id: '',
+          user_email: '',
           product_id: '',
           expires_at: '',
         });
@@ -1722,17 +1722,18 @@ export default function Admin({ user }: AdminProps) {
               <CardContent>
                 <form onSubmit={handleUserAccessSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="user-id">User ID</Label>
+                    <Label htmlFor="user-email">User Email</Label>
                     <Input
-                      id="user-id"
-                      value={userAccessForm.user_id}
-                      onChange={(e) => setUserAccessForm({...userAccessForm, user_id: e.target.value})}
-                      placeholder="User UUID from Supabase Auth"
+                      id="user-email"
+                      type="email"
+                      value={userAccessForm.user_email}
+                      onChange={(e) => setUserAccessForm({...userAccessForm, user_email: e.target.value})}
+                      placeholder="user@example.com"
                       required
-                      data-testid="input-user-id"
+                      data-testid="input-user-email"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Get User UUID from Supabase Auth dashboard
+                      Enter the user's email address from Supabase Auth
                     </p>
                   </div>
                   <div>
@@ -1766,7 +1767,7 @@ export default function Admin({ user }: AdminProps) {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={createUserAccessMutation.isPending || !userAccessForm.user_id || !userAccessForm.product_id}
+                    disabled={createUserAccessMutation.isPending || !userAccessForm.user_email || !userAccessForm.product_id}
                     data-testid="button-grant-access"
                   >
                     {createUserAccessMutation.isPending ? 'Granting...' : 'Grant Access'}
@@ -1808,7 +1809,7 @@ export default function Admin({ user }: AdminProps) {
                       <div key={access.id} className="flex items-center justify-between p-3 border border-border rounded-md">
                         <div>
                           <p className="font-medium text-foreground" data-testid={`text-access-user-${access.id}`}>
-                            User: {access.user_id}
+                            User: {access.user_email || access.user_id}
                           </p>
                           <p className="text-sm text-muted-foreground" data-testid={`text-access-product-${access.id}`}>
                             Product: {access.products?.title || 'Unknown Product'}
