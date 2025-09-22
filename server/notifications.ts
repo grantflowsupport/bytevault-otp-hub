@@ -470,7 +470,7 @@ export const startNotificationScheduler = () => {
       const today = now.toISOString().split('T')[0];
       
       // Run daily check at the configured time if not already run today (with 1-minute tolerance)
-      const scheduledTime = settings.notification_time;
+      const scheduledTime = settings.notification_time || '09:00';
       const [scheduledHour, scheduledMinute] = scheduledTime.split(':').map(Number);
       const [currentHour, currentMinute] = [now.getHours(), now.getMinutes()];
       
