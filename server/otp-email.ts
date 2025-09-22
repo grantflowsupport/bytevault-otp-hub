@@ -79,10 +79,11 @@ async function getAdvancedFilterConfig(account: any): Promise<FilterConfig> {
     otpPatterns.push(new RegExp(DEFAULT_OTP_REGEX, 'g'));
   }
   
-  // Enhanced patterns for common OTP formats (with context to reduce false positives)
+  // Enhanced patterns for common OTP formats (tightened to avoid false positives)
   const enhancedPatterns = [
-    /(?:code|otp|pin|verification|authenticate)[\s:]*(\d{4,8})/gi, // Context-aware numeric
-    /(?:code|otp|pin)[\s:]*([A-Z0-9]{4,8})/gi, // Context-aware alphanumeric
+    /(?:\b(?:code|otp|verification|authenticate|passcode)\b)[:\s-]*([0-9]{4,8})/g, // Strict numeric OTP patterns
+    /(?:\b(?:code|otp|verification|authenticate|passcode)\b)[:\s-]*([A-Z0-9]{4,8})/g, // Strict alphanumeric patterns  
+    /\bPIN\b[:\s-]*([0-9]{4,8})/g, // Explicit PIN only for numeric codes
   ];
   
   otpPatterns.push(...enhancedPatterns);
@@ -393,26 +394,37 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             if (foundOtp) {
               // Validate OTP format (basic sanity check)
               if (foundOtp.length >= 4 && foundOtp.length <= 12) {
-                // Found OTP! Update last_used_at and log success
-                await supabaseAdmin
-                  .from('accounts')
-                  .update({ last_used_at: new Date().toISOString() })
-                  .eq('id', account.id);
-
-                await logOTP(userId, product.id, account.id, 'success', 
-                  `OTP extracted (pattern: ${matchPattern}, relevance: ${isOtpRelated ? 'high' : 'low'}, length: ${foundOtp.length})`);
+                // Check confidence - only accept high-confidence matches
+                const isStrictSixDigit = /^\d{6}$/.test(foundOtp);
+                const isHighConfidence = isStrictSixDigit || isOtpRelated;
                 
-                lock.release();
-                await client.logout();
+                if (isHighConfidence) {
+                  // Found high-confidence OTP! Update last_used_at and log success
+                  await supabaseAdmin
+                    .from('accounts')
+                    .update({ last_used_at: new Date().toISOString() })
+                    .eq('id', account.id);
 
-                return res.json({
-                  otp: foundOtp,
-                  from: parsed.from?.text || 'Unknown',
-                  subject: parsed.subject || '',
-                  fetched_at: new Date().toISOString(),
-                  relevance: isOtpRelated ? 'high' : 'low',
-                  pattern: matchPattern,
-                });
+                  await logOTP(userId, product.id, account.id, 'success', 
+                    `OTP extracted (pattern: ${matchPattern}, relevance: ${isOtpRelated ? 'high' : 'low'}, confidence: high, length: ${foundOtp.length})`);
+                  
+                  lock.release();
+                  await client.logout();
+
+                  return res.json({
+                    otp: foundOtp,
+                    from: parsed.from?.text || 'Unknown',
+                    subject: parsed.subject || '',
+                    fetched_at: new Date().toISOString(),
+                    relevance: isOtpRelated ? 'high' : 'low',
+                    pattern: matchPattern,
+                    account_label: account.label
+                  });
+                } else {
+                  // Low confidence match - log and continue scanning more emails
+                  console.log(`⚠️ Low confidence OTP candidate "${foundOtp}" from ${parsed.from?.text} - continuing search...`);
+                  foundOtp = null; // Reset to continue searching
+                }
               }
             }
           }
