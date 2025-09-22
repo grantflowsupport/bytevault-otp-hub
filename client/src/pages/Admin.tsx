@@ -107,7 +107,7 @@ export default function Admin({ user }: AdminProps) {
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
-    type: 'product' | 'account' | 'mapping' | 'credential' | 'user-access' | null;
+    type: 'product' | 'account' | 'mapping' | 'credential' | 'user-access' | 'totp' | null;
     item: any;
   }>({
     isOpen: false,
@@ -493,6 +493,43 @@ export default function Admin({ user }: AdminProps) {
       toast({
         variant: "destructive",
         title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  // Delete TOTP configuration mutation
+  const deleteTotpMutation = useMutation({
+    mutationFn: async (product_id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/totp/product/${product_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete TOTP configuration');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "TOTP configuration deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/totp'] });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Delete Failed",
         description: error.message,
       });
     },
@@ -1643,15 +1680,25 @@ export default function Admin({ user }: AdminProps) {
                       <div key={config.id} className="p-3 border border-border rounded-md">
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{config.issuer || 'No Issuer'}</div>
-                            <div className="text-xs text-muted-foreground">{config.account_label || 'No Label'}</div>
+                            <div className="font-medium text-sm" data-testid={`text-totp-issuer-${config.id}`}>{config.issuer || 'No Issuer'}</div>
+                            <div className="text-xs text-muted-foreground" data-testid={`text-totp-label-${config.id}`}>{config.account_label || 'No Label'}</div>
                             <div className="text-xs text-muted-foreground mt-1">
                               {config.digits} digits • {config.period}s period • {config.algorithm}
                             </div>
                           </div>
-                          <Badge variant={config.is_active ? "default" : "secondary"} className="text-xs">
-                            {config.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={config.is_active ? "default" : "secondary"} className="text-xs">
+                              {config.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteConfirm({ isOpen: true, type: 'totp', item: config })}
+                              data-testid={`button-delete-totp-${config.id}`}
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1835,6 +1882,7 @@ export default function Admin({ user }: AdminProps) {
               {deleteConfirm.type === 'mapping' && `Are you sure you want to delete this product-account mapping? This action cannot be undone.`}
               {deleteConfirm.type === 'credential' && `Are you sure you want to delete the credential "${deleteConfirm.item?.label}"? This action cannot be undone.`}
               {deleteConfirm.type === 'user-access' && `Are you sure you want to revoke access for this user? This action cannot be undone.`}
+              {deleteConfirm.type === 'totp' && `Are you sure you want to delete the TOTP configuration "${deleteConfirm.item?.issuer || 'Unknown'}"? This action cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1851,6 +1899,8 @@ export default function Admin({ user }: AdminProps) {
                   deleteCredentialMutation.mutate(deleteConfirm.item.id);
                 } else if (deleteConfirm.type === 'user-access') {
                   deleteUserAccessMutation.mutate(deleteConfirm.item.id);
+                } else if (deleteConfirm.type === 'totp') {
+                  deleteTotpMutation.mutate(deleteConfirm.item.product_id);
                 }
               }}
               disabled={
@@ -1858,7 +1908,8 @@ export default function Admin({ user }: AdminProps) {
                 deleteAccountMutation.isPending || 
                 deleteMappingMutation.isPending || 
                 deleteCredentialMutation.isPending || 
-                deleteUserAccessMutation.isPending
+                deleteUserAccessMutation.isPending ||
+                deleteTotpMutation.isPending
               }
               data-testid="button-confirm-delete"
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -1868,7 +1919,8 @@ export default function Admin({ user }: AdminProps) {
                 deleteAccountMutation.isPending || 
                 deleteMappingMutation.isPending || 
                 deleteCredentialMutation.isPending || 
-                deleteUserAccessMutation.isPending 
+                deleteUserAccessMutation.isPending ||
+                deleteTotpMutation.isPending
                   ? 'Deleting...' 
                   : 'Delete'
               }

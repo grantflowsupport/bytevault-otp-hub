@@ -442,19 +442,31 @@ router.get('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     }
 
     // Transform products into TOTP configuration format
-    const totpConfigs = (products || []).map(product => ({
-      id: `totp-${product.id}`,
-      product_id: product.id,
-      product_title: product.title,
-      product_slug: product.slug,
-      issuer: product.description.replace(' TOTP configured', ''),
-      account_label: product.title,
-      digits: 6,
-      period: 30,
-      algorithm: 'SHA1',
-      is_active: true,
-      created_at: product.created_at
-    }));
+    const totpConfigs = (products || []).map(product => {
+      // Clean issuer by properly handling both old and new format
+      let issuer = product.description;
+      if (issuer.includes('|')) {
+        // New format: "Issuer TOTP configured|{metadata}"
+        issuer = issuer.split('|')[0].replace(' TOTP configured', '');
+      } else {
+        // Old format: just remove "TOTP configured"
+        issuer = issuer.replace(' TOTP configured', '');
+      }
+      
+      return {
+        id: `totp-${product.id}`,
+        product_id: product.id,
+        product_title: product.title,
+        product_slug: product.slug,
+        issuer: issuer,
+        account_label: product.title,
+        digits: 6,
+        period: 30,
+        algorithm: 'SHA1',
+        is_active: true,
+        created_at: product.created_at
+      };
+    });
 
     console.error('TOTP Debug - Returning TOTP configs:', totpConfigs.length);
     res.json(totpConfigs);
@@ -1003,6 +1015,72 @@ router.delete('/user-access/:id', requireAdmin, async (req: AuthenticatedRequest
   } catch (error) {
     console.error('Delete user access error:', error);
     res.status(500).json({ error: 'Failed to revoke user access' });
+  }
+});
+
+// Delete TOTP Configuration
+router.delete('/totp/product/:product_id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { product_id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing product data for audit logging
+    const { data: product, error: fetchError } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .eq('id', product_id)
+      .single();
+
+    if (fetchError || !product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Check if product has TOTP configuration
+    if (!product.description?.includes('TOTP configured')) {
+      return res.status(404).json({ error: 'TOTP configuration not found for this product' });
+    }
+
+    // Store old values for audit
+    const oldValues = {
+      id: `totp-${product_id}`,
+      product_id: product_id,
+      description: product.description,
+      totp_configured: true
+    };
+
+    // Remove TOTP configuration by updating the description
+    // Remove both the indicator and any metadata
+    let newDescription = product.description;
+    if (newDescription.includes('|')) {
+      // New format: "Issuer TOTP configured|{metadata}"
+      newDescription = newDescription.split('|')[0].replace(' TOTP configured', '');
+    } else {
+      // Old format: just remove "TOTP configured"
+      newDescription = newDescription.replace(' TOTP configured', '');
+    }
+
+    const { error } = await supabaseAdmin
+      .from('products')
+      .update({ description: newDescription })
+      .eq('id', product_id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_totp',
+      action: 'delete',
+      entity_id: `totp-${product_id}`,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'TOTP configuration deleted successfully' });
+  } catch (error) {
+    console.error('Delete TOTP configuration error:', error);
+    res.status(500).json({ error: 'Failed to delete TOTP configuration' });
   }
 });
 
