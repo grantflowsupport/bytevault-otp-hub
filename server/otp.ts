@@ -298,8 +298,15 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           try {
             for (const uid of messagesToFetch.reverse()) {
             console.log('🔄 Downloading email UID:', uid);
-            const downloadResult = await client.download(uid);
-            console.log('✅ Download completed for UID:', uid);
+            let downloadResult;
+            try {
+              downloadResult = await client.download(uid);
+              console.log('✅ Download completed for UID:', uid);
+            } catch (downloadError) {
+              console.log('❌ Download failed for UID:', uid, 'error:', downloadError.message);
+              continue;
+            }
+            
             console.log('📧 Downloaded email UID:', uid, 'download result:', typeof downloadResult, 'has content:', !!downloadResult?.content);
             
             if (!downloadResult || !downloadResult.content) {
