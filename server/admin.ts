@@ -309,8 +309,18 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const auditContext = AuditService.getContext(req);
     
     // Validate the secret if provided
-    if (data.secret_base32 && !TotpService.validateSecret(data.secret_base32)) {
-      return res.status(400).json({ error: 'Invalid Base32 secret format' });
+    if (data.secret_base32) {
+      console.log('TOTP Debug - Input secret:', JSON.stringify(data.secret_base32));
+      console.log('TOTP Debug - Secret length:', data.secret_base32.length);
+      console.log('TOTP Debug - Secret type:', typeof data.secret_base32);
+      
+      const isValid = TotpService.validateSecret(data.secret_base32);
+      console.log('TOTP Debug - Validation result:', isValid);
+      
+      if (!isValid) {
+        console.log('TOTP Debug - Validation failed for secret:', data.secret_base32);
+        return res.status(400).json({ error: 'Invalid Base32 secret format' });
+      }
     }
     
     // Fetch existing data for audit logging
