@@ -1,8 +1,9 @@
 import express from 'express';
-import { supabaseAdmin } from './db.js';
+import { supabaseAdmin, db } from './db.js';
 import { requireAdmin, type AuthenticatedRequest } from './auth.js';
 import { auditLogs, products, accounts, productAccounts, productCredentials, userAccess } from '@shared/schema.js';
 import type { InsertAuditLog, AuditLog } from '@shared/schema.js';
+import { desc, eq, gte, lte, count, sql, and } from 'drizzle-orm';
 
 const router = express.Router();
 
@@ -39,14 +40,7 @@ class AuditService {
         user_agent: context.user_agent || null,
       };
 
-      const { error } = await supabaseAdmin
-        .from('audit_logs')
-        .insert(auditData);
-
-      if (error) {
-        console.error('Audit logging failed:', error);
-        // Don't throw error to avoid breaking the main operation
-      }
+      await db.insert(auditLogs).values(auditData);
     } catch (error) {
       console.error('Audit logging exception:', error);
       // Don't throw error to avoid breaking the main operation
@@ -64,44 +58,40 @@ class AuditService {
   // Fetch current state before modification
   static async fetchCurrentState(entity_type: string, entity_id: string): Promise<any> {
     try {
-      let table: any;
+      let data: any[] = [];
       
       switch (entity_type) {
         case 'products':
-          table = 'products';
+          data = await db.select().from(products).where(eq(products.id, entity_id)).limit(1);
           break;
         case 'accounts':
-          table = 'accounts';
+          data = await db.select().from(accounts).where(eq(accounts.id, entity_id)).limit(1);
           break;
         case 'product_accounts':
-          table = 'product_accounts';
+          data = await db.select().from(productAccounts).where(eq(productAccounts.id, entity_id)).limit(1);
           break;
         case 'product_credentials':
-          table = 'product_credentials';
+          data = await db.select().from(productCredentials).where(eq(productCredentials.id, entity_id)).limit(1);
           break;
         case 'user_access':
-          table = 'user_access';
+          data = await db.select().from(userAccess).where(eq(userAccess.id, entity_id)).limit(1);
           break;
         default:
           return null;
       }
 
-      const { data, error } = await supabaseAdmin
-        .from(table)
-        .select('*')
-        .eq('id', entity_id)
-        .single();
-
-      if (error || !data) {
+      if (!data || data.length === 0) {
         return null;
       }
 
+      const result = data[0];
+
       // Remove sensitive data from audit logs
-      if (entity_type === 'accounts' && data.imap_password_enc) {
-        data.imap_password_enc = '[ENCRYPTED]';
+      if (entity_type === 'accounts' && result.imap_password_enc) {
+        result.imap_password_enc = '[ENCRYPTED]';
       }
 
-      return data;
+      return result;
     } catch (error) {
       console.error('Failed to fetch current state:', error);
       return null;
@@ -112,15 +102,13 @@ class AuditService {
   static async rollbackAction(audit_id: string, admin_user_id: string): Promise<{ success: boolean; message: string }> {
     try {
       // Fetch the audit log
-      const { data: auditLog, error: auditError } = await supabaseAdmin
-        .from('audit_logs')
-        .select('*')
-        .eq('id', audit_id)
-        .single();
-
-      if (auditError || !auditLog) {
+      const auditLogResult = await db.select().from(auditLogs).where(eq(auditLogs.id, audit_id)).limit(1);
+      
+      if (!auditLogResult || auditLogResult.length === 0) {
         return { success: false, message: 'Audit log not found' };
       }
+
+      const auditLog = auditLogResult[0];
 
       const { entity_type, action, entity_id, old_values } = auditLog;
 
@@ -239,36 +227,35 @@ router.get('/logs', requireAdmin, async (req: AuthenticatedRequest, res) => {
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    let query = supabaseAdmin
-      .from('audit_logs')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    // Apply filters
+    // Build filter conditions
+    const conditions: any[] = [];
     if (entity_type) {
-      query = query.eq('entity_type', entity_type);
+      conditions.push(eq(auditLogs.entity_type, entity_type as string));
     }
     if (action) {
-      query = query.eq('action', action);
+      conditions.push(eq(auditLogs.action, action as string));
     }
     if (admin_user_id) {
-      query = query.eq('admin_user_id', admin_user_id);
+      conditions.push(eq(auditLogs.admin_user_id, admin_user_id as string));
     }
     if (start_date) {
-      query = query.gte('created_at', start_date);
+      conditions.push(gte(auditLogs.created_at, new Date(start_date as string)));
     }
     if (end_date) {
-      query = query.lte('created_at', end_date);
+      conditions.push(lte(auditLogs.created_at, new Date(end_date as string)));
     }
 
-    // Apply pagination
-    query = query.range(offset, offset + Number(limit) - 1);
+    // Get total count
+    const totalResult = await db.select({ count: count() }).from(auditLogs).where(conditions.length > 0 ? and(...conditions) : sql`1=1`);
+    const totalCount = totalResult[0]?.count || 0;
 
-    const { data, error, count } = await query;
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
+    // Get paginated data
+    const data = await db.select()
+      .from(auditLogs)
+      .where(conditions.length > 0 ? and(...conditions) : sql`1=1`)
+      .orderBy(desc(auditLogs.created_at))
+      .limit(Number(limit))
+      .offset(offset);
 
     // Parse JSON fields for response
     const logs = data.map((log: any) => ({
@@ -284,8 +271,8 @@ router.get('/logs', requireAdmin, async (req: AuthenticatedRequest, res) => {
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total: count || 0,
-        pages: Math.ceil((count || 0) / Number(limit)),
+        total: totalCount,
+        pages: Math.ceil(totalCount / Number(limit)),
       },
     });
   } catch (error) {
@@ -297,14 +284,15 @@ router.get('/logs', requireAdmin, async (req: AuthenticatedRequest, res) => {
 // Get audit statistics
 router.get('/stats', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    const { data: logs, error } = await supabaseAdmin
-      .from('audit_logs')
-      .select('action, entity_type, created_at')
-      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const logs = await db.select({
+      action: auditLogs.action,
+      entity_type: auditLogs.entity_type,
+      created_at: auditLogs.created_at
+    })
+    .from(auditLogs)
+    .where(gte(auditLogs.created_at, thirtyDaysAgo));
 
     // Calculate statistics
     const stats = {

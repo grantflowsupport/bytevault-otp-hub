@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from '@shared/schema.js';
 
 // Supabase configuration for authentication and data storage
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -19,3 +22,12 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
     persistSession: false,
   }
 });
+
+// Neon database connection for application data
+const DATABASE_URL = process.env.DATABASE_URL!;
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL is required');
+}
+
+const sql = neon(DATABASE_URL);
+export const db = drizzle(sql, { schema });
