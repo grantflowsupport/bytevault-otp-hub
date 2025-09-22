@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: bytevault-otp-hub
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE
+        sync: false
+      - key: CRYPTO_SECRET_KEY
+        sync: false
+      - key: EMAIL_FETCH_LIMIT
+        sync: false
+      - key: DEFAULT_OTP_REGEX
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: TOTP_DEFAULT_ALGO
+        sync: false
+      - key: TOTP_DEFAULT_DIGITS
+        sync: false
+      - key: TOTP_DEFAULT_PERIOD
+        sync: false
+      - key: SESSION_SECRET
+        sync: false

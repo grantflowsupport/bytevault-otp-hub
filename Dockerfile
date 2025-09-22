@@ -24,12 +24,12 @@ ENV NODE_ENV=production
 # Copy the entire built application from build stage
 COPY --from=build /app /app
 
-# Expose port 3000 (Render will map this automatically)
-EXPOSE 3000
+# Expose port 5000 (matches app default)
+EXPOSE 5000
 
-# Health check
+# Health check using dynamic PORT or default 5000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+  CMD node -e "const port=process.env.PORT||5000;require('http').get(\`http://localhost:\${port}/api/health\`, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
 
 # Start the application
 CMD ["node", "dist/index.js"]
