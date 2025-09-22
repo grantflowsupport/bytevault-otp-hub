@@ -298,12 +298,20 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           try {
             for (const uid of messagesToFetch.reverse()) {
             console.log('🔄 Downloading email UID:', uid);
+            console.log('🔍 ImapFlow client state before download:', {
+              clientState: client.readyState,
+              hasClient: !!client,
+              uid: uid,
+              uidType: typeof uid
+            });
+            
             let downloadResult;
             try {
+              console.log('⚡ Starting client.download() call for UID:', uid);
               downloadResult = await client.download(uid);
-              console.log('✅ Download completed for UID:', uid);
+              console.log('✅ Download completed for UID:', uid, 'result type:', typeof downloadResult);
             } catch (downloadError) {
-              console.log('❌ Download failed for UID:', uid, 'error:', downloadError.message);
+              console.log('❌ Download failed for UID:', uid, 'error:', downloadError.message, 'stack:', downloadError.stack);
               continue;
             }
             
