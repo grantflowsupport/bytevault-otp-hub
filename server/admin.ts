@@ -563,6 +563,13 @@ router.get('/credentials', requireAdmin, async (req: AuthenticatedRequest, res) 
 // Get overall analytics summary
 router.get('/analytics/summary', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
+    // Add cache-busting headers for development
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
     const { data: logs } = await supabaseAdmin
@@ -696,6 +703,13 @@ router.get('/analytics/products', requireAdmin, async (req: AuthenticatedRequest
 // Get time-based analytics (requests over time)
 router.get('/analytics/timeline', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
+    // Add cache-busting headers for development
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
     const days = parseInt(req.query.days as string) || 7;
     const { data, error } = await supabaseAdmin
       .from('otp_logs')
