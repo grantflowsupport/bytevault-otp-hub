@@ -781,6 +781,231 @@ router.get('/analytics/logs', requireAdmin, async (req: AuthenticatedRequest, re
   }
 });
 
+// Delete endpoints for admin management
+
+// Delete Product
+router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    const oldValues = await AuditService.fetchCurrentState('products', id);
+    if (!oldValues) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    // Check for dependencies
+    const { data: mappings } = await supabaseAdmin
+      .from('product_accounts')
+      .select('id')
+      .eq('product_id', id)
+      .limit(1);
+      
+    const { data: credentials } = await supabaseAdmin
+      .from('product_credentials')
+      .select('id')
+      .eq('product_id', id)
+      .limit(1);
+      
+    const { data: userAccess } = await supabaseAdmin
+      .from('user_access')
+      .select('id')
+      .eq('product_id', id)
+      .limit(1);
+    
+    if (mappings?.length || credentials?.length || userAccess?.length) {
+      return res.status(400).json({ 
+        error: 'Cannot delete product with existing mappings, credentials, or user access. Please remove them first.' 
+      });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('products')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'products',
+      action: 'delete',
+      entity_id: id,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
+// Delete Account
+router.delete('/account/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    const oldValues = await AuditService.fetchCurrentState('accounts', id);
+    if (!oldValues) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    
+    // Check for dependencies
+    const { data: mappings } = await supabaseAdmin
+      .from('product_accounts')
+      .select('id')
+      .eq('account_id', id)
+      .limit(1);
+    
+    if (mappings?.length) {
+      return res.status(400).json({ 
+        error: 'Cannot delete account with existing product mappings. Please remove them first.' 
+      });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('accounts')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'accounts',
+      action: 'delete',
+      entity_id: id,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
+// Delete Product-Account Mapping
+router.delete('/mapping/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    const oldValues = await AuditService.fetchCurrentState('product_accounts', id);
+    if (!oldValues) {
+      return res.status(404).json({ error: 'Mapping not found' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('product_accounts')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_accounts',
+      action: 'delete',
+      entity_id: id,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'Mapping deleted successfully' });
+  } catch (error) {
+    console.error('Delete mapping error:', error);
+    res.status(500).json({ error: 'Failed to delete mapping' });
+  }
+});
+
+// Delete Product Credential
+router.delete('/credential/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    const oldValues = await AuditService.fetchCurrentState('product_credentials', id);
+    if (!oldValues) {
+      return res.status(404).json({ error: 'Credential not found' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('product_credentials')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'product_credentials',
+      action: 'delete',
+      entity_id: id,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'Credential deleted successfully' });
+  } catch (error) {
+    console.error('Delete credential error:', error);
+    res.status(500).json({ error: 'Failed to delete credential' });
+  }
+});
+
+// Delete User Access
+router.delete('/user-access/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const auditContext = AuditService.getContext(req);
+    
+    // Fetch existing data for audit logging
+    const oldValues = await AuditService.fetchCurrentState('user_access', id);
+    if (!oldValues) {
+      return res.status(404).json({ error: 'User access not found' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('user_access')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Log the deletion
+    await AuditService.logAction(auditContext, {
+      entity_type: 'user_access',
+      action: 'delete',
+      entity_id: id,
+      old_values: oldValues,
+      new_values: null,
+    });
+
+    res.json({ message: 'User access revoked successfully' });
+  } catch (error) {
+    console.error('Delete user access error:', error);
+    res.status(500).json({ error: 'Failed to revoke user access' });
+  }
+});
+
 // Bulk User Management endpoints
 
 // Bulk grant user access (CSV import)

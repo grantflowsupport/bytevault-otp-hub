@@ -9,6 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 // Removed Tabs import - using custom implementation
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +102,17 @@ export default function Admin({ user }: AdminProps) {
     period: 30,
     algorithm: 'SHA1',
     is_active: true,
+  });
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    type: 'product' | 'account' | 'mapping' | 'credential' | 'user-access' | null;
+    item: any;
+  }>({
+    isOpen: false,
+    type: null,
+    item: null,
   });
 
   // Tab state management - persist across remounts
@@ -564,6 +585,187 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Delete mutations
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/product/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete product');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/account/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete account');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/accounts'] });
+      toast({
+        title: "Success",
+        description: "Account deleted successfully",
+      });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  const deleteMappingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/mapping/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete mapping');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/mappings'] });
+      toast({
+        title: "Success",
+        description: "Mapping deleted successfully",
+      });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  const deleteCredentialMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/credential/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete credential');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/credentials'] });
+      toast({
+        title: "Success",
+        description: "Credential deleted successfully",
+      });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
+  const deleteUserAccessMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch(`/api/admin/user-access/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to revoke user access');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/user-access'] });
+      toast({
+        title: "Success",
+        description: "User access revoked successfully",
+      });
+      setDeleteConfirm({ isOpen: false, type: null, item: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createProductMutation.mutate(productForm, {
@@ -809,6 +1011,14 @@ export default function Admin({ user }: AdminProps) {
                           <Badge variant={product.is_active ? "default" : "secondary"}>
                             {product.is_active ? "Active" : "Inactive"}
                           </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteConfirm({ isOpen: true, type: 'product', item: product })}
+                            data-testid={`button-delete-product-${product.id}`}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -962,6 +1172,14 @@ export default function Admin({ user }: AdminProps) {
                           <Badge variant={account.is_active ? "default" : "secondary"}>
                             {account.is_active ? "Active" : "Inactive"}
                           </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteConfirm({ isOpen: true, type: 'account', item: account })}
+                            data-testid={`button-delete-account-${account.id}`}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1104,6 +1322,14 @@ export default function Admin({ user }: AdminProps) {
                           <Badge variant={mapping.is_active ? "default" : "secondary"}>
                             {mapping.is_active ? "Active" : "Inactive"}
                           </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteConfirm({ isOpen: true, type: 'mapping', item: mapping })}
+                            data-testid={`button-delete-mapping-${mapping.id}`}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1252,6 +1478,14 @@ export default function Admin({ user }: AdminProps) {
                           <Badge variant={credential.is_active ? "default" : "secondary"}>
                             {credential.is_active ? "Active" : "Inactive"}
                           </Badge>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteConfirm({ isOpen: true, type: 'credential', item: credential })}
+                            data-testid={`button-delete-credential-${credential.id}`}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1543,11 +1777,10 @@ export default function Admin({ user }: AdminProps) {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => revokeUserAccessMutation.mutate({ user_id: access.user_id, product_id: access.product_id })}
-                            disabled={revokeUserAccessMutation.isPending}
+                            onClick={() => setDeleteConfirm({ isOpen: true, type: 'user-access', item: access })}
                             data-testid={`button-revoke-access-${access.id}`}
                           >
-                            {revokeUserAccessMutation.isPending ? 'Revoking...' : 'Revoke'}
+                            Revoke
                           </Button>
                         </div>
                       </div>
@@ -1590,6 +1823,59 @@ export default function Admin({ user }: AdminProps) {
         </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm.isOpen} onOpenChange={(open) => !open && setDeleteConfirm({ isOpen: false, type: null, item: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm.type === 'product' && `Are you sure you want to delete the product "${deleteConfirm.item?.title}"? This action cannot be undone and will remove all associated mappings, credentials, and user access.`}
+              {deleteConfirm.type === 'account' && `Are you sure you want to delete the account "${deleteConfirm.item?.label}"? This action cannot be undone and will remove all associated mappings.`}
+              {deleteConfirm.type === 'mapping' && `Are you sure you want to delete this product-account mapping? This action cannot be undone.`}
+              {deleteConfirm.type === 'credential' && `Are you sure you want to delete the credential "${deleteConfirm.item?.label}"? This action cannot be undone.`}
+              {deleteConfirm.type === 'user-access' && `Are you sure you want to revoke access for this user? This action cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm.type === 'product') {
+                  deleteProductMutation.mutate(deleteConfirm.item.id);
+                } else if (deleteConfirm.type === 'account') {
+                  deleteAccountMutation.mutate(deleteConfirm.item.id);
+                } else if (deleteConfirm.type === 'mapping') {
+                  deleteMappingMutation.mutate(deleteConfirm.item.id);
+                } else if (deleteConfirm.type === 'credential') {
+                  deleteCredentialMutation.mutate(deleteConfirm.item.id);
+                } else if (deleteConfirm.type === 'user-access') {
+                  deleteUserAccessMutation.mutate(deleteConfirm.item.id);
+                }
+              }}
+              disabled={
+                deleteProductMutation.isPending || 
+                deleteAccountMutation.isPending || 
+                deleteMappingMutation.isPending || 
+                deleteCredentialMutation.isPending || 
+                deleteUserAccessMutation.isPending
+              }
+              data-testid="button-confirm-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {
+                deleteProductMutation.isPending || 
+                deleteAccountMutation.isPending || 
+                deleteMappingMutation.isPending || 
+                deleteCredentialMutation.isPending || 
+                deleteUserAccessMutation.isPending 
+                  ? 'Deleting...' 
+                  : 'Delete'
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
