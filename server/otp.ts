@@ -297,34 +297,19 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
           
           try {
             for (const uid of messagesToFetch.reverse()) {
-            console.log('🔄 Downloading email UID:', uid);
-            console.log('🔍 ImapFlow client state before download:', {
-              clientState: client.readyState,
-              hasClient: !!client,
-              uid: uid,
-              uidType: typeof uid
-            });
+            console.log('🔄 Fetching email UID:', uid);
             
-            let downloadResult;
-            try {
-              console.log('⚡ Starting client.download() call for UID:', uid);
-              downloadResult = await client.download(uid);
-              console.log('✅ Download completed for UID:', uid, 'result type:', typeof downloadResult);
-            } catch (downloadError) {
-              console.log('❌ Download failed for UID:', uid, 'error:', downloadError.message, 'stack:', downloadError.stack);
+            // Use correct ImapFlow API - fetchOne with source stream
+            const msg = await client.fetchOne(uid, { source: true, uid: true });
+            const source = msg?.source;
+            
+            if (!source) {
+              console.log('❌ No source stream for UID:', uid);
               continue;
             }
             
-            console.log('📧 Downloaded email UID:', uid, 'download result:', typeof downloadResult, 'has content:', !!downloadResult?.content);
-            
-            if (!downloadResult || !downloadResult.content) {
-              console.log('❌ No content downloaded for UID:', uid);
-              continue;
-            }
-            
-            const { content } = downloadResult;
-            console.log('📧 Downloaded email UID:', uid, 'size:', content.length);
-            const parsed = await simpleParser(content);
+            console.log('✅ Source stream obtained for UID:', uid);
+            const parsed = await simpleParser(source);
             console.log('✅ Parsed email UID:', uid);
 
             console.log('Processing email:', {
