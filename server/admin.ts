@@ -565,17 +565,16 @@ router.get('/analytics/summary', requireAdmin, async (req: AuthenticatedRequest,
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     
-    const logs = await db.select({
-      status: otpLogs.status
-    })
-    .from(otpLogs)
-    .where(gte(otpLogs.created_at, thirtyDaysAgo));
+    const { data: logs } = await supabaseAdmin
+      .from('otp_logs')
+      .select('status')
+      .gte('created_at', thirtyDaysAgo.toISOString());
 
     const summary = {
-      total_requests: logs.length,
-      successful_requests: logs.filter(l => l.status === 'success').length,
-      failed_requests: logs.filter(l => l.status !== 'success').length,
-      success_rate: logs.length ? (logs.filter(l => l.status === 'success').length / logs.length * 100) : 0,
+      total_requests: logs?.length || 0,
+      successful_requests: logs?.filter(l => l.status === 'success').length || 0,
+      failed_requests: logs?.filter(l => l.status !== 'success').length || 0,
+      success_rate: logs?.length ? (logs.filter(l => l.status === 'success').length / logs.length * 100) : 0,
     };
 
     res.json(summary);
