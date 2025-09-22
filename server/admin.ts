@@ -386,20 +386,25 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       created_at: new Date().toISOString()
     };
 
-    // Log the action (without the encrypted secret)
+    // Prepare audit data (without the encrypted secret)
     const sanitizedResult = { ...result, secret_enc: '[ENCRYPTED]' };
     const sanitizedOldValues = oldValues ? { ...oldValues, secret_enc: '[ENCRYPTED]' } : null;
     
-    await AuditService.logAction(auditContext, {
+    console.error('TOTP Debug - SUCCESS! Returning result:', sanitizedResult);
+    
+    // Return success response immediately
+    res.json(sanitizedResult);
+    
+    // Do audit logging in background - don't block the response
+    AuditService.logAction(auditContext, {
       entity_type: 'product_totp',
       action,
       entity_id: result.id,
       old_values: sanitizedOldValues,
       new_values: sanitizedResult,
+    }).catch((auditError) => {
+      console.error('TOTP Debug - Audit logging failed (non-blocking):', auditError);
     });
-
-    console.error('TOTP Debug - SUCCESS! Returning result:', sanitizedResult);
-    res.json(sanitizedResult);
   } catch (error) {
     console.error('Create TOTP error:', error);
     res.status(400).json({ error: 'Invalid TOTP data' });
