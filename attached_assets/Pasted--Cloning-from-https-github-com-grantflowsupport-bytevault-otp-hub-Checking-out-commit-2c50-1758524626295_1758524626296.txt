@@ -1,0 +1,125 @@
+==> Cloning from https://github.com/grantflowsupport/bytevault-otp-hub
+==> Checking out commit 2c50eb15c8bfd67e252363aa24de482962f7e57e in branch main
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 900B done
+#1 DONE 0.0s
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 ...
+#3 [auth] library/node:pull render-prod/docker-mirror-repository/library/node:pull token for us-west1-docker.pkg.dev
+#3 DONE 0.0s
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.6s
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
+#5 resolve docker.io/library/node:20-alpine@sha256:eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722 0.0s done
+#5 ...
+#6 [internal] load build context
+#6 transferring context: 4.99MB 0.1s done
+#6 DONE 0.2s
+#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
+#5 extracting sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+#5 extracting sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8 0.1s done
+#5 extracting sha256:c88300f8759af46375ccc157a0a0dbf7cdaeded52394b5ce2ce074e3b773fe82
+#5 extracting sha256:c88300f8759af46375ccc157a0a0dbf7cdaeded52394b5ce2ce074e3b773fe82 1.4s done
+#5 DONE 2.2s
+#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
+#5 extracting sha256:fd345d7e43c58474c833bee593321ab1097dd720bebd8032e75fbf5b81b1e554 0.1s done
+#5 extracting sha256:0de821d16564893ff12fae9499550711d92157ed1e6705a8c7f7e63eac0a2bb9 0.0s done
+#5 DONE 2.3s
+#7 [build 2/6] WORKDIR /app
+#7 DONE 0.0s
+#8 [build 3/6] COPY package*.json ./
+#8 DONE 0.0s
+#9 [build 4/6] RUN npm ci
+#9 4.616 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+#9 4.684 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+#9 9.989 
+#9 9.989 added 628 packages, and audited 629 packages in 10s
+#9 9.989 
+#9 9.989 80 packages are looking for funding
+#9 9.989   run `npm fund` for details
+#9 10.01 
+#9 10.01 8 vulnerabilities (3 low, 5 moderate)
+#9 10.01 
+#9 10.01 To address issues that do not require attention, run:
+#9 10.01   npm audit fix
+#9 10.01 
+#9 10.01 To address all issues (including breaking changes), run:
+#9 10.01   npm audit fix --force
+#9 10.01 
+#9 10.01 Run `npm audit` for details.
+#9 10.02 npm notice
+#9 10.02 npm notice New major version of npm available! 10.8.2 -> 11.6.0
+#9 10.02 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.0
+#9 10.02 npm notice To update run: npm install -g npm@11.6.0
+#9 10.02 npm notice
+#9 DONE 13.8s
+#10 [build 5/6] COPY . .
+#10 DONE 0.4s
+#11 [build 6/6] RUN npm run build
+#11 0.239 
+#11 0.239 > rest-express@1.0.0 build
+#11 0.239 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+#11 0.239 
+#11 0.471 vite v5.4.20 building for production...
+#11 0.529 transforming...
+#11 0.817 Browserslist: browsers data (caniuse-lite) is 11 months old. Please run:
+#11 0.817   npx update-browserslist-db@latest
+#11 0.817   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+#11 8.241 ✓ 2600 modules transformed.
+#11 8.804 rendering chunks...
+#11 8.830 computing gzip size...
+#11 8.857 ../dist/public/index.html                   0.84 kB │ gzip:   0.47 kB
+#11 8.857 ../dist/public/assets/index-C36DdpW5.css   63.15 kB │ gzip:  11.15 kB
+#11 8.857 ../dist/public/assets/index-DO7xmrSJ.js   975.64 kB │ gzip: 271.79 kB
+#11 8.857 
+#11 8.857 (!) Some chunks are larger than 500 kB after minification. Consider:
+#11 8.857 - Using dynamic import() to code-split the application
+#11 8.857 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#11 8.857 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#11 8.858 ✓ built in 8.36s
+#11 8.944 
+#11 8.944   dist/index.js  104.3kb
+#11 8.944 
+#11 8.944 ⚡ Done in 8ms
+#11 DONE 9.1s
+#12 [stage-1 3/3] COPY --from=build /app /app
+#12 DONE 10.0s
+#13 exporting to docker image format
+#13 exporting layers
+#13 exporting layers 19.3s done
+#13 exporting manifest sha256:efa8770febccc25fa76ff905760d866398551694e210ca5cb9b7e638518ac084
+#13 exporting manifest sha256:efa8770febccc25fa76ff905760d866398551694e210ca5cb9b7e638518ac084 0.2s done
+#13 exporting config sha256:3a81d80ac41a19c14bced0fb6437d6bd0ea1e3a4834a6fbca460d10d776d6e87
+#13 exporting config sha256:3a81d80ac41a19c14bced0fb6437d6bd0ea1e3a4834a6fbca460d10d776d6e87 0.3s done
+#13 DONE 21.2s
+#14 exporting cache to client directory
+#14 preparing build cache for export
+#14 writing cache manifest sha256:d49b349b654e774e0864e600e1602cbda64a91ad16220fdb99627bcc3f6a4b05
+#14 writing cache manifest sha256:d49b349b654e774e0864e600e1602cbda64a91ad16220fdb99627bcc3f6a4b05 0.1s done
+#14 DONE 26.8s
+Pushing image to registry...
+Upload succeeded
+==> Deploying...
+file:///app/dist/index.js:214
+  throw new Error("DATABASE_URL is required");
+        ^
+Error: DATABASE_URL is required
+    at file:///app/dist/index.js:214:9
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Node.js v20.19.5
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+file:///app/dist/index.js:214
+  throw new Error("DATABASE_URL is required");
+        ^
+Error: DATABASE_URL is required
+    at file:///app/dist/index.js:214:9
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Node.js v20.19.5
