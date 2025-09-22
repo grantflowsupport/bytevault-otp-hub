@@ -346,11 +346,17 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     
     const validatedData = insertProductTotpSchema.parse(data);
     
+    console.error('TOTP Debug - Validated data:', JSON.stringify(validatedData, null, 2));
+    console.error('TOTP Debug - Attempting Supabase upsert for product_totp');
+    
     const { data: result, error } = await supabaseAdmin
       .from('product_totp')
       .upsert(validatedData)
       .select()
       .single();
+    
+    console.error('TOTP Debug - Supabase result:', result);
+    console.error('TOTP Debug - Supabase error:', error);
 
     if (error) {
       return res.status(400).json({ error: error.message });
