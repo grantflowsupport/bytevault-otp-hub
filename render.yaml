@@ -3,7 +3,7 @@ services:
     name: bytevault-otp-hub
     env: node
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && VITE_SUPABASE_URL=$VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY npm run build
     startCommand: npm start
     autoDeploy: true
     healthCheckPath: /api/health
