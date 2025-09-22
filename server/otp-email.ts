@@ -540,15 +540,42 @@ router.post('/get-totp/:slug', requireUser, async (req: AuthenticatedRequest, re
       return res.status(403).json({ error: 'access_expired' });
     }
 
-    // 3. Load active product_totp for that product
-    const { data: totpConfig, error: totpError } = await supabaseAdmin
-      .from('product_totp')
-      .select('id, secret_enc, issuer, account_label, digits, period, algorithm')
-      .eq('product_id', product.id)
-      .eq('is_active', true)
+    // 3. Load TOTP config from product description (workaround for PostgREST cache)
+    const { data: productData, error: productFetchError } = await supabaseAdmin
+      .from('products')
+      .select('description')
+      .eq('id', product.id)
       .single();
 
-    if (totpError || !totpConfig) {
+    if (productFetchError || !productData) {
+      await logOTP(userId, product.id, null, 'product_fetch_failed', 'Failed to fetch product data');
+      return res.status(500).json({ error: 'product_fetch_failed' });
+    }
+
+    // Parse TOTP metadata from description
+    let totpConfig = null;
+    try {
+      if (productData.description && productData.description.includes('TOTP configured|')) {
+        const metadataJson = productData.description.split('TOTP configured|')[1];
+        const metadata = JSON.parse(metadataJson);
+        
+        if (metadata.totp_configured && metadata.secret_enc) {
+          totpConfig = {
+            id: `totp-${product.id}`,
+            secret_enc: metadata.secret_enc,
+            issuer: metadata.issuer,
+            account_label: metadata.account_label,
+            digits: metadata.digits,
+            period: metadata.period,
+            algorithm: metadata.algorithm,
+          };
+        }
+      }
+    } catch (parseError) {
+      console.error('TOTP metadata parsing error:', parseError);
+    }
+
+    if (!totpConfig) {
       await logOTP(userId, product.id, null, 'totp_not_configured', 'TOTP not configured for this product');
       return res.status(404).json({ error: 'totp_not_configured' });
     }

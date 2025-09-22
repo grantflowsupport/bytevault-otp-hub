@@ -34,7 +34,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id,
             slug,
             title,
-            description,
             is_active
           )
         `)
@@ -62,13 +61,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .eq('is_active', true);
         credentials = credData || [];
 
-        // Fetch TOTP configurations
-        const { data: totpData } = await supabaseAdmin
-          .from('product_totp')
-          .select('product_id')
-          .in('product_id', productIds)
-          .eq('is_active', true);
-        totpConfigs = totpData || [];
+        // Fetch TOTP configurations (workaround for PostgREST cache issue)
+        // Check products that have "TOTP configured" in description (fetch separately for security)
+        const { data: totpProducts } = await supabaseAdmin
+          .from('products')
+          .select('id, description')
+          .in('id', productIds)
+          .ilike('description', '%TOTP configured%');
+        
+        totpConfigs = (totpProducts || []).map(p => ({ product_id: p.id }));
+        console.log('TOTP configurations found:', totpConfigs.length, 'for products:', productIds);
       }
 
       // Transform the data to a more usable format

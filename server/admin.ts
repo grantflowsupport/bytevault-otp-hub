@@ -310,7 +310,7 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     
     // Clean and validate the secret if provided
     if (data.secret_base32) {
-      console.error('TOTP Debug - Input secret:', JSON.stringify(data.secret_base32));
+      console.error('TOTP Debug - Input secret: [REDACTED]');
       console.error('TOTP Debug - Secret length:', data.secret_base32.length);
       console.error('TOTP Debug - Secret type:', typeof data.secret_base32);
       
@@ -346,7 +346,7 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
     
     const validatedData = insertProductTotpSchema.parse(data);
     
-    console.error('TOTP Debug - Validated data:', JSON.stringify(validatedData, null, 2));
+    console.error('TOTP Debug - Validated data structure created (secret redacted)');
     console.error('TOTP Debug - Attempting workaround for PostgREST schema cache issue');
     
     // Since PostgREST can't find the table, let's try a workaround
@@ -356,11 +356,22 @@ router.post('/totp', requireAdmin, async (req: AuthenticatedRequest, res) => {
       created_at: new Date().toISOString()
     };
     
-    // Try to update the product with the TOTP config in metadata
+    // Store both TOTP indicator and encrypted secret in product metadata
+    const totpMetadata = {
+      totp_configured: true,
+      issuer: validatedData.issuer,
+      secret_enc: validatedData.secret_enc, // Store encrypted secret here
+      digits: validatedData.digits,
+      period: validatedData.period,
+      algorithm: validatedData.algorithm,
+      account_label: validatedData.account_label,
+      created_at: new Date().toISOString()
+    };
+    
     const { data: productUpdate, error: updateError } = await supabaseAdmin
       .from('products')
       .update({ 
-        description: `${validatedData.issuer} TOTP configured` // Update description to show TOTP is configured
+        description: `${validatedData.issuer} TOTP configured|${JSON.stringify(totpMetadata)}` // Store both indicator and metadata
       })
       .eq('id', validatedData.product_id)
       .select()

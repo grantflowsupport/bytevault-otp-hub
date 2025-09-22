@@ -75,8 +75,8 @@ export class TotpService {
       .toUpperCase()
       .replace(/[^A-Z2-7]/g, '');  // Remove everything except valid Base32 chars
     
-    console.error('TOTP cleanSecret - original:', JSON.stringify(secret));
-    console.error('TOTP cleanSecret - cleaned:', JSON.stringify(cleaned));
+    console.error('TOTP cleanSecret - original: [REDACTED]');
+    console.error('TOTP cleanSecret - cleaned: [REDACTED]');
     
     return cleaned;
   }
