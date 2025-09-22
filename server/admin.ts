@@ -796,6 +796,7 @@ router.get('/analytics/logs', requireAdmin, async (req: AuthenticatedRequest, re
 router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
+    const { force } = req.query;
     const auditContext = AuditService.getContext(req);
     
     // Fetch existing data for audit logging
@@ -804,31 +805,90 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
       return res.status(404).json({ error: 'Product not found' });
     }
     
-    // Check for dependencies
+    // Count dependencies with detailed information
     const { data: mappings } = await supabaseAdmin
       .from('product_accounts')
-      .select('id')
-      .eq('product_id', id)
-      .limit(1);
+      .select('id, accounts(label)')
+      .eq('product_id', id);
       
     const { data: credentials } = await supabaseAdmin
       .from('product_credentials')
-      .select('id')
-      .eq('product_id', id)
-      .limit(1);
+      .select('id, username')
+      .eq('product_id', id);
       
     const { data: userAccess } = await supabaseAdmin
       .from('user_access')
+      .select('id, user_id, expires_at')
+      .eq('product_id', id);
+
+    const { data: totpSecrets } = await supabaseAdmin
+      .from('product_totp')
       .select('id')
-      .eq('product_id', id)
-      .limit(1);
+      .eq('product_id', id);
     
-    if (mappings?.length || credentials?.length || userAccess?.length) {
+    const hasDepedencies = mappings?.length || credentials?.length || userAccess?.length;
+    
+    // If dependencies exist and force is not specified, return detailed info
+    if (hasDepedencies && force !== 'true') {
       return res.status(400).json({ 
-        error: 'Cannot delete product with existing mappings, credentials, or user access. Please remove them first.' 
+        error: 'dependencies_exist',
+        message: 'Cannot delete product with existing related records. Use force=true to cascade delete.',
+        details: {
+          mappings: mappings?.length || 0,
+          credentials: credentials?.length || 0,
+          user_access: userAccess?.length || 0,
+          totp_secrets: totpSecrets?.length || 0,
+          mapping_details: mappings?.map(m => ({ id: m.id, account_label: m.accounts?.label })),
+          credential_details: credentials?.map(c => ({ id: c.id, username: c.username })),
+          user_access_details: userAccess?.map(u => ({ id: u.id, user_id: u.user_id, expires_at: u.expires_at }))
+        }
       });
     }
 
+    // If force=true or no dependencies, proceed with deletion
+    if (force === 'true' && hasDepedencies) {
+      // Delete related records first (in the correct order)
+      
+      // 1. Delete user access records
+      if (userAccess?.length) {
+        const { error: userAccessError } = await supabaseAdmin
+          .from('user_access')
+          .delete()
+          .eq('product_id', id);
+        
+        if (userAccessError) {
+          return res.status(400).json({ error: `Failed to delete user access: ${userAccessError.message}` });
+        }
+      }
+      
+      // 2. Delete product credentials
+      if (credentials?.length) {
+        const { error: credentialsError } = await supabaseAdmin
+          .from('product_credentials')
+          .delete()
+          .eq('product_id', id);
+        
+        if (credentialsError) {
+          return res.status(400).json({ error: `Failed to delete credentials: ${credentialsError.message}` });
+        }
+      }
+      
+      // 3. Delete product-account mappings
+      if (mappings?.length) {
+        const { error: mappingsError } = await supabaseAdmin
+          .from('product_accounts')
+          .delete()
+          .eq('product_id', id);
+        
+        if (mappingsError) {
+          return res.status(400).json({ error: `Failed to delete mappings: ${mappingsError.message}` });
+        }
+      }
+      
+      // 4. TOTP secrets will be cascade deleted automatically due to schema constraint
+    }
+
+    // Delete the product (this will cascade delete TOTP secrets)
     const { error } = await supabaseAdmin
       .from('products')
       .delete()
@@ -845,9 +905,24 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
       entity_id: id,
       old_values: oldValues,
       new_values: null,
+      metadata: {
+        forced_cascade: force === 'true',
+        deleted_mappings: mappings?.length || 0,
+        deleted_credentials: credentials?.length || 0,
+        deleted_user_access: userAccess?.length || 0,
+        deleted_totp_secrets: totpSecrets?.length || 0
+      }
     });
 
-    res.json({ message: 'Product deleted successfully' });
+    res.json({ 
+      message: 'Product deleted successfully',
+      deleted_records: {
+        mappings: mappings?.length || 0,
+        credentials: credentials?.length || 0,
+        user_access: userAccess?.length || 0,
+        totp_secrets: totpSecrets?.length || 0
+      }
+    });
   } catch (error) {
     console.error('Delete product error:', error);
     res.status(500).json({ error: 'Failed to delete product' });

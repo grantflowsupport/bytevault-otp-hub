@@ -638,13 +638,17 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // State for dependency details
+  const [dependencyDetails, setDependencyDetails] = useState<any>(null);
+
   // Delete mutations
   const deleteProductMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, force = false }: { id: string; force?: boolean }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No session');
 
-      const response = await fetch(`/api/admin/product/${id}`, {
+      const url = `/api/admin/product/${id}${force ? '?force=true' : ''}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -652,21 +656,37 @@ export default function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete product');
+        const errorData = await response.json();
+        if (errorData.error === 'dependencies_exist') {
+          // Store dependency details for confirmation dialog
+          setDependencyDetails(errorData.details);
+          throw new Error('SHOW_DEPENDENCIES');
+        }
+        throw new Error(errorData.error || 'Failed to delete product');
       }
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      
+      const deletedCount = Object.values(data.deleted_records || {}).reduce((sum: number, count: any) => sum + count, 0);
+      const successMessage = deletedCount > 0 
+        ? `Product deleted successfully along with ${deletedCount} related records`
+        : "Product deleted successfully";
+        
       toast({
         title: "Success",
-        description: "Product deleted successfully",
+        description: successMessage,
       });
       setDeleteConfirm({ isOpen: false, type: null, item: null });
+      setDependencyDetails(null);
     },
     onError: (error: Error) => {
+      if (error.message === 'SHOW_DEPENDENCIES') {
+        // Dependencies found - the dialog will show them
+        return;
+      }
       toast({
         variant: "destructive",
         title: "Error",
@@ -1889,12 +1909,59 @@ export default function Admin({ user }: AdminProps) {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteConfirm.isOpen} onOpenChange={(open) => !open && setDeleteConfirm({ isOpen: false, type: null, item: null })}>
-        <AlertDialogContent>
+      <AlertDialog open={deleteConfirm.isOpen} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteConfirm({ isOpen: false, type: null, item: null });
+          setDependencyDetails(null);
+        }
+      }}>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteConfirm.type === 'product' && `Are you sure you want to delete the product "${deleteConfirm.item?.title}"? This action cannot be undone and will remove all associated mappings, credentials, and user access.`}
+            <AlertDialogTitle>
+              {dependencyDetails ? "Cascade Delete Required" : "Confirm Deletion"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              {deleteConfirm.type === 'product' && !dependencyDetails && `Are you sure you want to delete the product "${deleteConfirm.item?.title}"? This action cannot be undone.`}
+              
+              {deleteConfirm.type === 'product' && dependencyDetails && (
+                <div className="space-y-3">
+                  <p>The product "<strong>{deleteConfirm.item?.title}</strong>" has related records that must be deleted first:</p>
+                  
+                  <div className="bg-muted p-3 rounded-md text-sm">
+                    <div className="space-y-2">
+                      {dependencyDetails.mappings > 0 && (
+                        <div className="flex justify-between">
+                          <span>Email Account Mappings:</span>
+                          <span className="font-medium">{dependencyDetails.mappings}</span>
+                        </div>
+                      )}
+                      {dependencyDetails.credentials > 0 && (
+                        <div className="flex justify-between">
+                          <span>Login Credentials:</span>
+                          <span className="font-medium">{dependencyDetails.credentials}</span>
+                        </div>
+                      )}
+                      {dependencyDetails.user_access > 0 && (
+                        <div className="flex justify-between">
+                          <span>User Access Grants:</span>
+                          <span className="font-medium">{dependencyDetails.user_access}</span>
+                        </div>
+                      )}
+                      {dependencyDetails.totp_secrets > 0 && (
+                        <div className="flex justify-between">
+                          <span>2FA Configurations:</span>
+                          <span className="font-medium">{dependencyDetails.totp_secrets}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <p className="text-amber-600 dark:text-amber-400">
+                    ⚠️ Proceeding will permanently delete the product and all related records. This action cannot be undone.
+                  </p>
+                </div>
+              )}
+              
               {deleteConfirm.type === 'account' && `Are you sure you want to delete the account "${deleteConfirm.item?.label}"? This action cannot be undone and will remove all associated mappings.`}
               {deleteConfirm.type === 'mapping' && `Are you sure you want to delete this product-account mapping? This action cannot be undone.`}
               {deleteConfirm.type === 'credential' && `Are you sure you want to delete the credential "${deleteConfirm.item?.label}"? This action cannot be undone.`}
@@ -1903,11 +1970,13 @@ export default function Admin({ user }: AdminProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete" onClick={() => setDependencyDetails(null)}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteConfirm.type === 'product') {
-                  deleteProductMutation.mutate(deleteConfirm.item.id);
+                  deleteProductMutation.mutate({ id: deleteConfirm.item.id, force: !!dependencyDetails });
                 } else if (deleteConfirm.type === 'account') {
                   deleteAccountMutation.mutate(deleteConfirm.item.id);
                 } else if (deleteConfirm.type === 'mapping') {
@@ -1929,7 +1998,7 @@ export default function Admin({ user }: AdminProps) {
                 deleteTotpMutation.isPending
               }
               data-testid="button-confirm-delete"
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={dependencyDetails ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
             >
               {
                 deleteProductMutation.isPending || 
@@ -1939,7 +2008,7 @@ export default function Admin({ user }: AdminProps) {
                 deleteUserAccessMutation.isPending ||
                 deleteTotpMutation.isPending
                   ? 'Deleting...' 
-                  : 'Delete'
+                  : dependencyDetails ? 'Delete All' : 'Delete'
               }
             </AlertDialogAction>
           </AlertDialogFooter>
