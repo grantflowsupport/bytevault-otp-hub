@@ -1953,6 +1953,12 @@ export default function Admin({ user }: AdminProps) {
                           <span className="font-medium">{dependencyDetails.totp_secrets}</span>
                         </div>
                       )}
+                      {dependencyDetails.otp_logs > 0 && (
+                        <div className="flex justify-between">
+                          <span>OTP Request Logs:</span>
+                          <span className="font-medium">{dependencyDetails.otp_logs}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

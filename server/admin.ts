@@ -825,8 +825,13 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
       .from('product_totp')
       .select('id')
       .eq('product_id', id);
+
+    const { data: otpLogs } = await supabaseAdmin
+      .from('otp_logs')
+      .select('id')
+      .eq('product_id', id);
     
-    const hasDepedencies = mappings?.length || credentials?.length || userAccess?.length;
+    const hasDepedencies = mappings?.length || credentials?.length || userAccess?.length || otpLogs?.length;
     
     // If dependencies exist and force is not specified, return detailed info
     if (hasDepedencies && force !== 'true') {
@@ -838,6 +843,7 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
           credentials: credentials?.length || 0,
           user_access: userAccess?.length || 0,
           totp_secrets: totpSecrets?.length || 0,
+          otp_logs: otpLogs?.length || 0,
           mapping_details: mappings?.map(m => ({ id: m.id, account_label: m.accounts?.label })),
           credential_details: credentials?.map(c => ({ id: c.id, username: c.username })),
           user_access_details: userAccess?.map(u => ({ id: u.id, user_id: u.user_id, expires_at: u.expires_at }))
@@ -885,7 +891,19 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
         }
       }
       
-      // 4. TOTP secrets will be cascade deleted automatically due to schema constraint
+      // 4. Delete OTP logs
+      if (otpLogs?.length) {
+        const { error: otpLogsError } = await supabaseAdmin
+          .from('otp_logs')
+          .delete()
+          .eq('product_id', id);
+        
+        if (otpLogsError) {
+          return res.status(400).json({ error: `Failed to delete OTP logs: ${otpLogsError.message}` });
+        }
+      }
+      
+      // 5. TOTP secrets will be cascade deleted automatically due to schema constraint
     }
 
     // Delete the product (this will cascade delete TOTP secrets)
@@ -910,6 +928,7 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
         deleted_mappings: mappings?.length || 0,
         deleted_credentials: credentials?.length || 0,
         deleted_user_access: userAccess?.length || 0,
+        deleted_otp_logs: otpLogs?.length || 0,
         deleted_totp_secrets: totpSecrets?.length || 0
       }
     });
@@ -920,6 +939,7 @@ router.delete('/product/:id', requireAdmin, async (req: AuthenticatedRequest, re
         mappings: mappings?.length || 0,
         credentials: credentials?.length || 0,
         user_access: userAccess?.length || 0,
+        otp_logs: otpLogs?.length || 0,
         totp_secrets: totpSecrets?.length || 0
       }
     });
