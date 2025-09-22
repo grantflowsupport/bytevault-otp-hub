@@ -83,18 +83,15 @@ export default function Admin({ user }: AdminProps) {
     };
   });
 
-  const [totpForm, setTotpForm] = useState(() => {
-    const stored = localStorage.getItem('totpForm');
-    return stored ? JSON.parse(stored) : {
-      product_id: '',
-      secret_base32: '',
-      issuer: '',
-      account_label: '',
-      digits: 6,
-      period: 30,
-      algorithm: 'SHA1',
-      is_active: true,
-    };
+  const [totpForm, setTotpForm] = useState({
+    product_id: '',
+    secret_base32: '',
+    issuer: '',
+    account_label: '',
+    digits: 6,
+    period: 30,
+    algorithm: 'SHA1',
+    is_active: true,
   });
 
   // Tab state management - persist across remounts
@@ -144,9 +141,7 @@ export default function Admin({ user }: AdminProps) {
     localStorage.setItem('userAccessForm', JSON.stringify(userAccessForm));
   }, [userAccessForm]);
 
-  useEffect(() => {
-    localStorage.setItem('totpForm', JSON.stringify(totpForm));
-  }, [totpForm]);
+  // SECURITY: Never persist TOTP secrets to localStorage
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -547,6 +542,7 @@ export default function Admin({ user }: AdminProps) {
         title: "Success",
         description: "TOTP configuration created successfully",
       });
+      // Clear form including sensitive secret
       setTotpForm({
         product_id: '',
         secret_base32: '',
@@ -677,26 +673,7 @@ export default function Admin({ user }: AdminProps) {
 
   const handleTotpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createTotpMutation.mutate(totpForm, {
-      onSuccess: () => {
-        localStorage.removeItem('totpForm');
-        setTotpForm({
-          product_id: '',
-          secret_base32: '',
-          issuer: '',
-          account_label: '',
-          digits: 6,
-          period: 30,
-          algorithm: 'SHA1',
-          is_active: true,
-        });
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/totp'] });
-        toast({
-          title: "Success",
-          description: "TOTP configuration created successfully",
-        });
-      },
-    });
+    createTotpMutation.mutate(totpForm);
   };
 
   return (
@@ -1318,6 +1295,7 @@ export default function Admin({ user }: AdminProps) {
                     <Label htmlFor="secret-base32">TOTP Secret (Base32)</Label>
                     <Input
                       id="secret-base32"
+                      type="password"
                       value={totpForm.secret_base32}
                       onChange={(e) => setTotpForm({...totpForm, secret_base32: e.target.value})}
                       placeholder="JBSWY3DPEHPK3PXP"
