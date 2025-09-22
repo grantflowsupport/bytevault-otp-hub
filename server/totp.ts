@@ -70,16 +70,18 @@ export class TotpService {
    */
   static validateSecret(secret: string): boolean {
     try {
-      // Normalize secret (trim whitespace and uppercase)
-      const normalized = secret.trim().replace(/\s+/g, '').toUpperCase();
+      // Robust normalization: remove separators, whitespace, and zero-width characters
+      const normalized = secret
+        .trim()
+        .toUpperCase()
+        .replace(/[\s\-_:]/g, '')  // Remove spaces, hyphens, underscores, colons
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')  // Remove zero-width characters
+        .replace(/=+$/, '');  // Remove trailing padding
       
-      // Check if it's valid Base32
-      const base32Regex = /^[A-Z2-7]+=*$/i;
-      if (!base32Regex.test(normalized)) {
-        return false;
-      }
+      console.log('TOTP validateSecret - original:', JSON.stringify(secret));
+      console.log('TOTP validateSecret - normalized:', JSON.stringify(normalized));
       
-      // Try to generate a code to ensure it works
+      // Validate by attempting to generate a code (most reliable method)
       const defaults = TotpService.getDefaultConfig();
       authenticator.options = {
         digits: defaults.digits,
@@ -87,9 +89,15 @@ export class TotpService {
         algorithm: (defaults.algorithm || 'sha1').toLowerCase() as any,  // otplib needs lowercase
       };
       
-      const testCode = authenticator.generate(normalized);
+      console.log('TOTP validateSecret - authenticator options:', authenticator.options);
       
-      return testCode.length > 0;
+      const testCode = authenticator.generate(normalized);
+      console.log('TOTP validateSecret - generated test code:', testCode);
+      
+      const isValid = Boolean(testCode && testCode.length > 0);
+      console.log('TOTP validateSecret - final result:', isValid);
+      
+      return isValid;
     } catch (error) {
       console.error('TOTP validation error:', error instanceof Error ? error.message : String(error));
       return false;
