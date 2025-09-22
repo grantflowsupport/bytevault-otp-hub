@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import cors from 'cors';
 import { requireUser, AuthenticatedRequest } from './auth.js';
 import { supabaseAdmin } from './db.js';
-import otpRoutes from './otp.js';
+import otpRoutes from './otp-email.js';
 import adminRoutes from './admin.js';
 import notificationRoutes, { startNotificationScheduler } from './notifications.js';
 import auditRoutes from './audit.js';

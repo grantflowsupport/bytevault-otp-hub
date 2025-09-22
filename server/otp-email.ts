@@ -6,6 +6,8 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { TotpService } from './totp.js';
 
+console.log('🚀 OTP Email Router v2.1 – using fetchOne API loaded successfully');
+
 const router = Router();
 
 // Rate limiting - simple in-memory store
