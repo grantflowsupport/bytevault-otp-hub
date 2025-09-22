@@ -83,6 +83,20 @@ export default function Admin({ user }: AdminProps) {
     };
   });
 
+  const [totpForm, setTotpForm] = useState(() => {
+    const stored = localStorage.getItem('totpForm');
+    return stored ? JSON.parse(stored) : {
+      product_id: '',
+      secret_base32: '',
+      issuer: '',
+      account_label: '',
+      digits: 6,
+      period: 30,
+      algorithm: 'SHA1',
+      is_active: true,
+    };
+  });
+
   // Tab state management - persist across remounts
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.slice(1);
@@ -129,6 +143,10 @@ export default function Admin({ user }: AdminProps) {
   useEffect(() => {
     localStorage.setItem('userAccessForm', JSON.stringify(userAccessForm));
   }, [userAccessForm]);
+
+  useEffect(() => {
+    localStorage.setItem('totpForm', JSON.stringify(totpForm));
+  }, [totpForm]);
 
   // Fetch products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -216,6 +234,24 @@ export default function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) throw new Error('Failed to fetch user access');
+      return response.json();
+    },
+  });
+
+  // Fetch TOTP configurations
+  const { data: totpConfigs, isLoading: totpLoading } = useQuery({
+    queryKey: ['/api/admin/totp'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/totp', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch TOTP configurations');
       return response.json();
     },
   });
@@ -484,6 +520,54 @@ export default function Admin({ user }: AdminProps) {
     },
   });
 
+  // Create TOTP configuration mutation
+  const createTotpMutation = useMutation({
+    mutationFn: async (data: typeof totpForm) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const response = await fetch('/api/admin/totp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create TOTP configuration');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "TOTP configuration created successfully",
+      });
+      setTotpForm({
+        product_id: '',
+        secret_base32: '',
+        issuer: '',
+        account_label: '',
+        digits: 6,
+        period: 30,
+        algorithm: 'SHA1',
+        is_active: true,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/totp'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
+
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createProductMutation.mutate(productForm, {
@@ -591,6 +675,30 @@ export default function Admin({ user }: AdminProps) {
     });
   };
 
+  const handleTotpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createTotpMutation.mutate(totpForm, {
+      onSuccess: () => {
+        localStorage.removeItem('totpForm');
+        setTotpForm({
+          product_id: '',
+          secret_base32: '',
+          issuer: '',
+          account_label: '',
+          digits: 6,
+          period: 30,
+          algorithm: 'SHA1',
+          is_active: true,
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/totp'] });
+        toast({
+          title: "Success",
+          description: "TOTP configuration created successfully",
+        });
+      },
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -606,6 +714,7 @@ export default function Admin({ user }: AdminProps) {
             { id: "accounts", label: "Accounts" },
             { id: "mappings", label: "Mappings" },
             { id: "credentials", label: "Credentials" },
+            { id: "totp", label: "2FA (TOTP)" },
             { id: "users", label: "User Access" },
             { id: "bulk", label: "Bulk Management" },
             { id: "notifications", label: "Notifications" },
@@ -1172,6 +1281,169 @@ export default function Admin({ user }: AdminProps) {
                   </div>
                 ) : (
                   <p className="text-muted-foreground">No credentials created yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        )}
+
+        {/* TOTP Tab */}
+        {activeTab === "totp" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Create TOTP Configuration Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Create TOTP Configuration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleTotpSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="totp-product">Product</Label>
+                    <Select value={totpForm.product_id} onValueChange={(value) => setTotpForm({...totpForm, product_id: value})}>
+                      <SelectTrigger data-testid="select-totp-product">
+                        <SelectValue placeholder="Select a product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products?.map((product: any) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.title} ({product.slug})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="secret-base32">TOTP Secret (Base32)</Label>
+                    <Input
+                      id="secret-base32"
+                      value={totpForm.secret_base32}
+                      onChange={(e) => setTotpForm({...totpForm, secret_base32: e.target.value})}
+                      placeholder="JBSWY3DPEHPK3PXP"
+                      required
+                      data-testid="input-totp-secret"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Base32-encoded secret from authenticator app setup
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="issuer">Issuer</Label>
+                    <Input
+                      id="issuer"
+                      value={totpForm.issuer}
+                      onChange={(e) => setTotpForm({...totpForm, issuer: e.target.value})}
+                      placeholder="ByteVault OTP Hub"
+                      data-testid="input-totp-issuer"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="account-label">Account Label</Label>
+                    <Input
+                      id="account-label"
+                      value={totpForm.account_label}
+                      onChange={(e) => setTotpForm({...totpForm, account_label: e.target.value})}
+                      placeholder="Gmail Business Account"
+                      data-testid="input-totp-label"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label htmlFor="digits">Digits</Label>
+                      <Select value={totpForm.digits.toString()} onValueChange={(value) => setTotpForm({...totpForm, digits: parseInt(value)})}>
+                        <SelectTrigger data-testid="select-totp-digits">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="6">6</SelectItem>
+                          <SelectItem value="8">8</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="period">Period (s)</Label>
+                      <Select value={totpForm.period.toString()} onValueChange={(value) => setTotpForm({...totpForm, period: parseInt(value)})}>
+                        <SelectTrigger data-testid="select-totp-period">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="30">30</SelectItem>
+                          <SelectItem value="60">60</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="algorithm">Algorithm</Label>
+                      <Select value={totpForm.algorithm} onValueChange={(value) => setTotpForm({...totpForm, algorithm: value})}>
+                        <SelectTrigger data-testid="select-totp-algorithm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHA1">SHA1</SelectItem>
+                          <SelectItem value="SHA256">SHA256</SelectItem>
+                          <SelectItem value="SHA512">SHA512</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="totp-active"
+                      checked={totpForm.is_active}
+                      onCheckedChange={(checked) => setTotpForm({...totpForm, is_active: !!checked})}
+                      data-testid="checkbox-totp-active"
+                    />
+                    <Label htmlFor="totp-active">Active</Label>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={createTotpMutation.isPending || !totpForm.product_id || !totpForm.secret_base32}
+                    data-testid="button-create-totp"
+                  >
+                    {createTotpMutation.isPending ? 'Creating...' : 'Create TOTP'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Existing TOTP Configurations List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Existing TOTP Configurations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {totpLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse p-3 border border-border rounded-md">
+                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2 mb-1"></div>
+                        <div className="h-3 bg-muted rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : totpConfigs?.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No TOTP configurations found</p>
+                ) : (
+                  <div className="space-y-3">
+                    {totpConfigs?.map((config: any) => (
+                      <div key={config.id} className="p-3 border border-border rounded-md">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{config.issuer || 'No Issuer'}</div>
+                            <div className="text-xs text-muted-foreground">{config.account_label || 'No Label'}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {config.digits} digits • {config.period}s period • {config.algorithm}
+                            </div>
+                          </div>
+                          <Badge variant={config.is_active ? "default" : "secondary"} className="text-xs">
+                            {config.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>

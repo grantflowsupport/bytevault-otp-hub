@@ -166,21 +166,23 @@ router.post('/map', requireAdmin, async (req: AuthenticatedRequest, res) => {
 // Create/Update Product Credential
 router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    const validatedData = insertProductCredentialSchema.parse(req.body);
+    const data = req.body;
     const auditContext = AuditService.getContext(req);
     
     // Fetch existing data for audit logging
     let oldValues = null;
     let action: 'create' | 'update' = 'create';
     
-    if (validatedData.id) {
-      oldValues = await AuditService.fetchCurrentState('product_credentials', validatedData.id);
+    if (data.id) {
+      oldValues = await AuditService.fetchCurrentState('product_credentials', data.id);
       if (oldValues) {
         action = 'update';
       }
     }
     
-    const { data, error } = await supabaseAdmin
+    const validatedData = insertProductCredentialSchema.parse(data);
+    
+    const { data: result, error } = await supabaseAdmin
       .from('product_credentials')
       .upsert(validatedData)
       .select()
@@ -194,12 +196,12 @@ router.post('/credential', requireAdmin, async (req: AuthenticatedRequest, res) 
     await AuditService.logAction(auditContext, {
       entity_type: 'product_credentials',
       action,
-      entity_id: data.id,
+      entity_id: result.id,
       old_values: oldValues,
-      new_values: data,
+      new_values: result,
     });
 
-    res.json(data);
+    res.json(result);
   } catch (error) {
     console.error('Create credential error:', error);
     res.status(400).json({ error: 'Invalid credential data' });
