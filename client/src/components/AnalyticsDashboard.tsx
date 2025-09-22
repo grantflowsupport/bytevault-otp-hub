@@ -199,13 +199,24 @@ export default function AnalyticsDashboard() {
               <div className="animate-pulse text-muted-foreground">Loading timeline...</div>
             </div>
           ) : (
-            <ChartContainer config={chartConfig} className="h-64 w-full">
-              <LineChart data={timeline?.map(d => ({
-                ...d,
-                total_requests: Number(d.total_requests),
-                successful_requests: Number(d.successful_requests),
-                failed_requests: Number(d.failed_requests)
-              })) || []}>
+            <>
+              {/* Debug: Show raw data */}
+              <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                <strong>Debug - Timeline data:</strong>
+                <pre>{JSON.stringify(timeline?.slice(0, 3), null, 2)}</pre>
+              </div>
+              
+              <ChartContainer config={chartConfig} className="h-64 w-full">
+                <LineChart data={timeline?.map(d => {
+                  const normalized = {
+                    ...d,
+                    total_requests: Number(d.total_requests),
+                    successful_requests: Number(d.successful_requests),
+                    failed_requests: Number(d.failed_requests)
+                  };
+                  console.log('Chart data item:', normalized);
+                  return normalized;
+                }) || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -234,6 +245,7 @@ export default function AnalyticsDashboard() {
                 />
               </LineChart>
             </ChartContainer>
+            </>
           )}
         </CardContent>
       </Card>
