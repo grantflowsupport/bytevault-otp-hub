@@ -394,9 +394,30 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             if (foundOtp) {
               // Validate OTP format (basic sanity check)
               if (foundOtp.length >= 4 && foundOtp.length <= 12) {
-                // Check confidence - only accept high-confidence matches
+                // Helper to detect trivial/placeholder OTPs
+                const isTrivialOTP = (otp: string): boolean => {
+                  // Repeated digits (000000, 111111, etc.)
+                  if (/(\d)\1{5}/.test(otp)) return true;
+                  // Common sequences
+                  const sequences = ['123456', '654321', '123123', '000000', '111111', '222222'];
+                  return sequences.includes(otp);
+                };
+                
+                // Check if sender is whitelisted
+                const fromAddress = parsed.from?.text || '';
+                const senderWhitelisted = senderWhitelist.length > 0 && senderWhitelist.some(allowed => fromAddress.includes(allowed));
+                
+                // Extract context around the match for additional validation
+                const otpIndex = searchText.indexOf(foundOtp);
+                const contextStart = Math.max(0, otpIndex - 60);
+                const contextEnd = Math.min(searchText.length, otpIndex + foundOtp.length + 60);
+                const contextWindow = searchText.substring(contextStart, contextEnd);
+                const hasContextNearMatch = /(otp|code|verify|verification|login|sign\s?in|two[-\s]?factor|authentication|passcode)/i.test(contextWindow);
+                
+                // Check confidence - reject trivial OTPs and require context/trust
                 const isStrictSixDigit = /^\d{6}$/.test(foundOtp);
-                const isHighConfidence = isStrictSixDigit || isOtpRelated;
+                const isTrivial = isTrivialOTP(foundOtp);
+                const isHighConfidence = !isTrivial && (senderWhitelisted || isOtpRelated || hasContextNearMatch);
                 
                 if (isHighConfidence) {
                   // Found high-confidence OTP! Update last_used_at and log success
@@ -422,7 +443,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
                   });
                 } else {
                   // Low confidence match - log and continue scanning more emails
-                  console.log(`⚠️ Low confidence OTP candidate "${foundOtp}" from ${parsed.from?.text} - continuing search...`);
+                  console.log(`⚠️ Low confidence OTP candidate "${foundOtp}" from ${parsed.from?.text} (trivial: ${isTrivial}, context: ${hasContextNearMatch}, sender: ${senderWhitelisted}, subject: ${isOtpRelated}) - continuing search...`);
                   foundOtp = null; // Reset to continue searching
                 }
               }
