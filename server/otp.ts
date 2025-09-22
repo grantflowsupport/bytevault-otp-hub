@@ -299,6 +299,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             for (const uid of messagesToFetch.reverse()) {
             console.log('🔄 Downloading email UID:', uid);
             const downloadResult = await client.download(uid);
+            console.log('✅ Download completed for UID:', uid);
             console.log('📧 Downloaded email UID:', uid, 'download result:', typeof downloadResult, 'has content:', !!downloadResult?.content);
             
             if (!downloadResult || !downloadResult.content) {
