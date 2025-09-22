@@ -31,7 +31,7 @@ function Router() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const isAdmin = user?.email === 'harryroger798@gmail.com' || user?.email === 'admin@otp.bytevault.co.in';
+  const isAdmin = user?.email === 'harryroger798@gmail.com' || user?.email === 'admin@byteshopotp.co.site';
 
   if (loading) {
     return (
@@ -121,7 +121,7 @@ function Router() {
       <footer className="bg-card border-t border-border mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-muted-foreground">
-            Contact: <a href="mailto:admin@otp.bytevault.co.in" className="text-primary hover:underline">admin@otp.bytevault.co.in</a>
+            Contact: <a href="mailto:admin@byteshopotp.co.site" className="text-primary hover:underline">admin@byteshopotp.co.site</a>
           </p>
         </div>
       </footer>
