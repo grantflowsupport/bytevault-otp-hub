@@ -293,6 +293,7 @@ router.post('/get-otp/:slug', requireUser, async (req: AuthenticatedRequest, res
             fetchLimit: EMAIL_FETCH_LIMIT
           });
           
+          console.log('🔥 EXECUTION CHECKPOINT 1: Right after Messages to fetch log');
           console.log('🚨 DEBUG: About to start email processing loop');
           console.log('🚨 DEBUG: messagesToFetch type:', typeof messagesToFetch, 'length:', messagesToFetch.length);
           console.log('🚨 DEBUG: messagesToFetch sample:', messagesToFetch.slice(0, 3));
